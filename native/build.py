@@ -17,11 +17,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--platform', default='macos-arm64' if platform.system() == 'Darwin' else 'linux-x64-glibc')
 parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl,extra')
 parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 2))
+parser.add_argument('--sanitize', action='store_true', help='Build instrumented codecs in a separate output tree')
 args = parser.parse_args()
 WORK = ROOT / '.work'
-PREFIX = WORK / args.platform / 'prefix'
-BUILD = WORK / args.platform / 'build'
-DIST = ROOT / 'dist' / args.platform
+flavor = args.platform + ('-sanitized' if args.sanitize else '')
+PREFIX = WORK / flavor / 'prefix'
+BUILD = WORK / flavor / 'build'
+DIST = WORK / 'sanitized' / args.platform if args.sanitize else ROOT / 'dist' / args.platform
 PREFIX.mkdir(parents=True, exist_ok=True)
 BUILD.mkdir(parents=True, exist_ok=True)
 ENV = os.environ.copy()
@@ -29,6 +31,9 @@ ENV['PKG_CONFIG_LIBDIR'] = str(PREFIX / 'lib/pkgconfig')
 ENV['PKG_CONFIG_PATH'] = str(PREFIX / 'lib/pkgconfig')
 ENV['CMAKE_PREFIX_PATH'] = str(PREFIX)
 ENV['PATH'] = str(WORK / 'tools/bin') + os.pathsep + ENV['PATH']
+if args.sanitize:
+    for variable in ('CFLAGS', 'CXXFLAGS', 'LDFLAGS'):
+        ENV[variable] = '-fsanitize=address,undefined -fno-omit-frame-pointer'
 if platform.system() == 'Darwin':
     ENV['MACOSX_DEPLOYMENT_TARGET'] = '14.0'
 
@@ -100,7 +105,7 @@ def notices(codec, names):
     target.mkdir(parents=True, exist_ok=True)
     for name in names:
         src = source(name)
-        files = [p for p in src.iterdir() if p.is_file() and (p.name.upper().startswith(('LICENSE', 'COPYING', 'NOTICE')))]
+        files = [p for p in src.iterdir() if p.is_file() and (p.name.upper().startswith(('LICENSE', 'COPYING', 'NOTICE', 'PATENTS')))]
         for item in files: shutil.copy2(item, target / (name + '-' + item.name))
     if codec == 'avif':
         for dependency in ('aom', 'dav1d', 'libyuv'):
@@ -110,6 +115,7 @@ def notices(codec, names):
     (DIST / codec / 'build-info.json').write_text(json.dumps({
         'platform': args.platform, 'sources': {name: LOCK[name] for name in names},
         'compiler': subprocess.check_output(['cc', '--version'], text=True).splitlines()[0],
+        'commit': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(),
         'recipe': 'https://github.com/beint-no/glimt/tree/main/native',
     }, indent=2) + '\n')
 
@@ -124,7 +130,12 @@ def bridge(codec, libraries, shared=(), cflags=()):
     flags = ['-dynamiclib', '-Wl,-install_name,@loader_path/' + output.name] if suffix == 'dylib' else [
         '-shared', '-Wl,-z,relro,-z,now', '-Wl,--exclude-libs,ALL', '-static-libstdc++', '-static-libgcc', '-Wl,-rpath,$ORIGIN']
     if suffix == 'so': libraries = ['-Wl,--start-group', *libraries, '-Wl,--end-group']
-    run(['c++', *flags, '-o', output, obj, *libraries, '-lm', '-pthread'])
+    instrumentation = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
+    if instrumentation:
+        # Compile the ABI bridge itself with the same instrumentation as codecs.
+        run(['cc', '-std=c11', '-O1', '-g', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
+             *instrumentation, '-I' + str(PREFIX / 'include'), *cflags, '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
+    run(['c++', *flags, *instrumentation, '-o', output, obj, *libraries, '-lm', '-pthread'])
     for name in shared:
         candidates = list((PREFIX / 'lib').glob(name + '*.' + suffix + '*'))
         for item in candidates:

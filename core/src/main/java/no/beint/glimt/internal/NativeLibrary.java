@@ -14,8 +14,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
 import no.beint.glimt.ImageException;
+import no.beint.glimt.spi.NativeBundle;
 
 /** Loads only explicitly selected or checksum-verified bundled libraries. */
 @SuppressWarnings("restricted") // Deliberate FFM boundary; native access is granted by the application.
@@ -51,9 +53,10 @@ public final class NativeLibrary {
             return SymbolLookup.libraryLookup(library, LIBRARY_LIFETIME);
         }
         String target = platform();
-        String base = "no/beint/glimt/natives/" + codec + "/" + target + "/";
-        ClassLoader loader = NativeLibrary.class.getClassLoader();
-        try (InputStream manifest = loader.getResourceAsStream(base + "manifest.properties")) {
+        NativeBundle bundle = ServiceLoader.load(NativeBundle.class).stream().map(ServiceLoader.Provider::get)
+            .filter(candidate -> candidate.codec().equals(codec) && candidate.platform().equals(target)).findFirst()
+            .orElseThrow(() -> new ImageException("Missing " + codec + " natives for " + target + ". Add no.beint.glimt:" + codec + "-" + target));
+        try (InputStream manifest = bundle.open("manifest.properties")) {
             if (manifest == null) throw new ImageException("Missing " + codec + " natives for " + target +
                 ". Add no.beint.glimt:" + codec + "-" + target + " at the same Glimt version.");
             Properties hashes = new Properties(); hashes.load(manifest);
@@ -66,7 +69,7 @@ public final class NativeLibrary {
             for (String name : hashes.stringPropertyNames().stream().sorted().toList()) {
                 if (!name.matches("[A-Za-z0-9_.-]+") || name.equals(".") || name.equals("..")) throw new ImageException("Invalid native resource name");
                 Path output = directory.resolve(name);
-                try (InputStream resource = loader.getResourceAsStream(base + name)) {
+                try (InputStream resource = bundle.open(name)) {
                     if (resource == null) throw new ImageException("Missing native resource: " + name);
                     Files.copy(resource, output);
                 }
@@ -85,6 +88,8 @@ public final class NativeLibrary {
             throw new ImageException("Cannot load bundled " + codec + " for " + target, exception);
         } catch (IllegalCallerException exception) {
             throw new ImageException("Enable native access for no.beint.glimt (module path) or ALL-UNNAMED (class path)", exception);
+        } catch (UnsatisfiedLinkError exception) {
+            throw new ImageException("Cannot link bundled " + codec + " for " + target + "; verify the supported OS baseline", exception);
         }
     }
 }

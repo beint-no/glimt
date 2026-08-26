@@ -38,6 +38,12 @@ jobs:
           java-version: '26'
       - uses: gradle/actions/setup-gradle@v5
         if: matrix.platform != 'linux-x64-musl'
+      - name: Verify glibc detection with a second libc installed
+        if: matrix.platform == 'linux-x64-glibc'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl
+          test -e /lib/ld-musl-x86_64.so.1
       - name: Download tested bundles and verify unchanged native inputs
         env:
           GH_TOKEN: ${{ github.token }}

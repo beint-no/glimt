@@ -37,11 +37,23 @@ public final class NativeLibrary {
         if (os.contains("mac")) return "macos-" + arch;
         if (os.contains("linux")) {
             String loaderArch = arch.equals("x64") ? "x86_64" : "aarch64";
-            boolean musl = Files.exists(Path.of("/lib/ld-musl-" + loaderArch + ".so.1")) ||
-                Files.exists(Path.of("/usr/lib/ld-musl-" + loaderArch + ".so.1"));
+            boolean musl = usesMusl(loaderArch);
             return "linux-" + arch + (musl ? "-musl" : "-glibc");
         }
         throw new ImageException("No published Glimt natives for " + os + "/" + arch);
+    }
+    private static boolean usesMusl(String arch) {
+        // A glibc machine may also have musl-tools installed. Select the libc
+        // actually mapped into this JVM, rather than whichever loaders exist.
+        try {
+            String maps = Files.readString(Path.of("/proc/self/maps"));
+            if (maps.contains("/ld-musl-") || maps.contains("/libc.musl-")) return true;
+            if (maps.contains("/libc.so.6") || java.util.regex.Pattern.compile("/libc-[0-9.]+\\.so\\b").matcher(maps).find()) return false;
+        } catch (IOException | SecurityException unavailable) {
+            // Restricted procfs: retain loader detection for supported minimal containers.
+        }
+        return Files.exists(Path.of("/lib/ld-musl-" + arch + ".so.1")) ||
+            Files.exists(Path.of("/usr/lib/ld-musl-" + arch + ".so.1"));
     }
     private static SymbolLookup extractAndLoad(String codec) {
         String suffix = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("mac") ? ".dylib" : ".so";

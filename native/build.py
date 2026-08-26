@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 LOCK = json.loads((ROOT / 'sources.json').read_text())
 parser = argparse.ArgumentParser()
 parser.add_argument('--platform', default='macos-arm64' if platform.system() == 'Darwin' else 'linux-x64-glibc')
-parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl')
+parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl,extra')
 parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 2))
 args = parser.parse_args()
 WORK = ROOT / '.work'
@@ -113,12 +113,12 @@ def notices(codec, names):
         'recipe': 'https://github.com/beint-no/glimt/tree/main/native',
     }, indent=2) + '\n')
 
-def bridge(codec, libraries, shared=()):
+def bridge(codec, libraries, shared=(), cflags=()):
     target = DIST / codec
     target.mkdir(parents=True, exist_ok=True)
     obj = BUILD / (codec + '-bridge.o')
     run(['cc', '-std=c11', '-O3', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
-         '-I' + str(PREFIX / 'include'), '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
+         '-I' + str(PREFIX / 'include'), *cflags, '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
     suffix = 'dylib' if platform.system() == 'Darwin' else 'so'
     output = target / ('libglimt_' + codec + '.' + suffix)
     flags = ['-dynamiclib', '-Wl,-install_name,@loader_path/' + output.name] if suffix == 'dylib' else [
@@ -215,4 +215,26 @@ for codec in args.codecs.split(','):
             archives.append(matches[0])
         bridge(codec, [*archives, PREFIX / 'lib/liblcms2.a'])
         notices(codec, ['jxl', 'highway', 'brotli', 'lcms'])
+    elif codec == 'extra':
+        # Deliberately no system delegates, modules, external XML, fonts or utilities.
+        # PNG is needed only for PNG-compressed ICO entries, zlib for PSD.
+        for dependency in ('libpng16.a', 'libz.a', 'liblcms2.a'):
+            if not (PREFIX / 'lib' / dependency).exists(): raise RuntimeError('Build png before extra')
+        src = source('magick'); build = BUILD / 'magick'; build.mkdir(exist_ok=True)
+        without = ('bzlib', 'zip', 'zstd', 'autotrace', 'dps', 'fftw', 'flif', 'fpx', 'djvu', 'fontconfig',
+                   'freetype', 'raqm', 'gdi32', 'gslib', 'gvc', 'dmr', 'heic', 'jbig', 'jpeg', 'jxl',
+                   'lcms', 'openjp2', 'lqr', 'lzma', 'openexr', 'pango', 'raw', 'rsvg', 'tiff',
+                   'uhdr', 'webp', 'wmf', 'xml', 'x', 'perl', 'magick-plus-plus', 'utilities', 'modules')
+        run([src / 'configure', '--prefix=' + str(PREFIX), '--libdir=' + str(PREFIX / 'lib'),
+             '--disable-shared', '--enable-static', '--enable-pic', '--disable-openmp', '--disable-opencl',
+             '--enable-zero-configuration', '--disable-installed', '--disable-hdri', '--disable-dpc',
+             '--disable-docs', '--disable-deprecated', '--disable-cipher', '--disable-pipes',
+             '--with-quantum-depth=16', '--with-png=yes', '--with-zlib=yes',
+             'CPPFLAGS=-I' + str(PREFIX / 'include'), 'LDFLAGS=-L' + str(PREFIX / 'lib'),
+             *['--without-' + name for name in without]], cwd=build)
+        run(['make', '-j', args.jobs], cwd=build); run(['make', 'install'], cwd=build)
+        bridge(codec, [PREFIX / 'lib/libMagickCore-7.Q16.a', PREFIX / 'lib/libpng16.a',
+                      PREFIX / 'lib/libz.a', PREFIX / 'lib/liblcms2.a'],
+               cflags=['-I' + str(PREFIX / 'include/ImageMagick-7'), '-DMAGICKCORE_QUANTUM_DEPTH=16', '-DMAGICKCORE_HDRI_ENABLE=0'])
+        notices(codec, ['magick', 'png', 'zlib', 'lcms'])
     else: raise ValueError('Unknown codec: ' + codec)

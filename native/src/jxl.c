@@ -52,8 +52,11 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
             }
         } else if (status == JXL_DEC_FRAME) {
             if (++out->frames > limits->max_frames) { error = "Image frame count exceeds configured limit"; break; }
-            if (out->frames > 1 && JxlDecoderSkipCurrentFrame(decoder)) break;
         } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+            if (out->frames > 1) {
+                if (JxlDecoderSkipCurrentFrame(decoder)) break;
+                continue;
+            }
             size_t needed = 0;
             if (out->frames != 1 || JxlDecoderImageOutBufferSize(decoder, &format, &needed) || needed != out->size ||
                 JxlDecoderSetImageOutBuffer(decoder, &format, out->pixels, needed)) break;

@@ -7,7 +7,7 @@ plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
 allprojects { group = "no.beint.glimt"; version = "0.1.0" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 
-val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl")
+val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl", "extra")
 val platforms = listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")
 subprojects {
     apply(plugin = "java-library")

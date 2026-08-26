@@ -29,7 +29,7 @@ class ConversionTest {
     @ParameterizedTest
     @ValueSource(strings = {"rgba.png", "rgb.png", "palette.png", "gray.png", "gray-alpha.png", "rgba16.png", "interlaced.png",
         "baseline.jpg", "progressive.jpg", "gray.jpg", "cmyk.jpg", "lossless.webp", "lossy.webp", "rgba.gif", "rgb.bmp",
-        "rgba.tiff", "zip.tiff", "rgba.heic", "rgb10.heic", "rgba.jxl"})
+        "rgba.tiff", "zip.tiff", "rgba.heic", "rgb10.heic", "rgba.jxl", "rgba.psd", "rgba.tga", "rgba.ico", "rgb.ppm", "source.pam"})
     void convertsCorpusAndDecodesOutputWithDav1d(String name) throws Exception {
         byte[] source = fixture(name);
         ConvertedImage converted = FAST.convert(source);
@@ -69,7 +69,7 @@ class ConversionTest {
             }
         }
     }
-    @ParameterizedTest @ValueSource(strings = {"animated.gif", "multipage.tiff"})
+    @ParameterizedTest @ValueSource(strings = {"animated.gif", "multipage.tiff", "animated.webp", "animated.jxl"})
     void requiresExplicitFrameSelection(String name) throws Exception {
         byte[] source = fixture(name);
         assertThrows(ImageException.class, () -> FAST.convert(source));
@@ -134,5 +134,90 @@ class ConversionTest {
             var stream = new ByteArrayOutputStream(); assertTrue(ImageIO.write(image, "PNG", stream));
             var result = FAST.convert(stream.toByteArray()); assertEquals(width, result.width()); assertEquals(height, result.height());
         }
+    }
+    @ParameterizedTest @ValueSource(strings = {"paris_exif_xmp_icc.jpg", "dog_exif_extended_xmp_icc.jpg", "paris_icc_exif_xmp.png", "paris_icc_exif_xmp.avif", "sofa_grid1x5_420.avif"})
+    void convertsPhotographsAndAvifGrids(String name) throws Exception {
+        var result = FAST.convert(fixture(name));
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, result.bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(result.width(), decoded.width()); assertEquals(result.height(), decoded.height());
+            assertTrue(decoded.width() > 10 && decoded.height() > 10);
+        }
+    }
+    @Test void preservesRgbIccAndNormalizesGrayIcc() throws Exception {
+        var lossless = ImageConverter.builder().options(AvifOptions.DEFAULT.withEffort(0).withLossless(true)).build();
+        byte[] rgbProfile = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_sRGB).getData();
+        byte[] grayProfile = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_GRAY).getData();
+        for (boolean gray : new boolean[]{false, true}) {
+            byte[] profile = gray ? grayProfile : rgbProfile;
+            var icc = new ByteArrayOutputStream(); icc.writeBytes(new byte[]{'i','c','c',0,0}); icc.writeBytes(deflate(profile));
+            byte[] source = png(1, 1, 8, gray ? 0 : 6, gray ? new byte[]{0,(byte)128} : new byte[]{0,12,34,56,(byte)200}, "iCCP", icc.toByteArray());
+            var result = lossless.convert(source);
+            try (Arena arena = Arena.ofConfined()) {
+                var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, result.bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+                if (gray) {
+                    assertEquals(0, decoded.icc().byteSize());
+                    assertEquals(188, decoded.pixels().get(ValueLayout.JAVA_BYTE, 0) & 255, 2);
+                    assertEquals(255, decoded.pixels().get(ValueLayout.JAVA_BYTE, 3) & 255);
+                } else {
+                    assertArrayEquals(profile, decoded.icc().toArray(ValueLayout.JAVA_BYTE));
+                    assertArrayEquals(new byte[]{12,34,56,(byte)200}, decoded.pixels().toArray(ValueLayout.JAVA_BYTE));
+                }
+            }
+        }
+    }
+    @Test void preservesPngGammaAndTrueSixteenBitSamples() throws Exception {
+        byte[] gamma = java.nio.ByteBuffer.allocate(4).putInt(100000).array();
+        byte[] source = png(1, 1, 16, 6, new byte[]{0,0x12,0x34,0x45,0x67,(byte)0x89,(byte)0xab,(byte)0xff,(byte)0xff}, "gAMA", gamma);
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("png").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, source), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(16, decoded.depth()); assertEquals(0x1234, decoded.pixels().get(ValueLayout.JAVA_SHORT, 0) & 65535);
+            var profile = java.awt.color.ICC_Profile.getInstance(decoded.icc().toArray(ValueLayout.JAVA_BYTE));
+            var colorSpace = new java.awt.color.ICC_ColorSpace(profile);
+            assertEquals(0.735, colorSpace.toRGB(new float[]{0.5f,0.5f,0.5f})[0], 0.01);
+        }
+        assertEquals(12, FAST.convert(source).bitDepth());
+        assertThrows(ImageException.class, () -> ImageConverter.builder().options(AvifOptions.DEFAULT.withLossless(true)).build().convert(source));
+    }
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void selectsDisplayedApngFrameRatherThanPoster(boolean poster) throws Exception {
+        var out = new ByteArrayOutputStream(); out.writeBytes(new byte[]{(byte)137,80,78,71,13,10,26,10});
+        chunk(out, "IHDR", java.nio.ByteBuffer.allocate(13).putInt(3).putInt(2).put(new byte[]{8,6,0,0,0}).array());
+        chunk(out, "acTL", java.nio.ByteBuffer.allocate(8).putInt(2).putInt(0).array());
+        int sequence = 0;
+        byte[] red = new byte[26];
+        for (int y=0;y<2;y++) for (int x=0;x<3;x++) { red[y*13+1+x*4]=(byte)255; red[y*13+4+x*4]=(byte)255; }
+        if (poster) chunk(out, "IDAT", deflate(red));
+        chunk(out, "fcTL", frame(sequence++, poster ? 1 : 3, poster ? 1 : 2, poster ? 1 : 0, 0));
+        byte[] green = poster ? new byte[]{0,0,(byte)255,0,(byte)255} : red.clone();
+        if (!poster) for (int y=0;y<2;y++) for (int x=0;x<3;x++) { green[y*13+1+x*4]=0; green[y*13+2+x*4]=(byte)255; }
+        if (poster) { byte[] compressed=deflate(green); chunk(out,"fdAT", java.nio.ByteBuffer.allocate(4+compressed.length).putInt(sequence++).put(compressed).array()); }
+        else chunk(out, "IDAT", deflate(green));
+        chunk(out, "fcTL", frame(sequence++, 3, 2, 0, 0));
+        byte[] compressed=deflate(red); chunk(out,"fdAT",java.nio.ByteBuffer.allocate(4+compressed.length).putInt(sequence).put(compressed).array());
+        chunk(out,"IEND",new byte[0]); byte[] input = out.toByteArray();
+        assertThrows(ImageException.class, () -> FAST.convert(input));
+        var result = ImageConverter.builder().frames(FramePolicy.FIRST_FRAME).options(AvifOptions.DEFAULT.withEffort(0).withLossless(true)).build().convert(input);
+        assertEquals(2,result.sourceFrames()); assertEquals(3,result.width()); assertEquals(2,result.height());
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded=NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE,result.bytes()),DecodeLimits.DEFAULT,FramePolicy.REJECT,arena);
+            assertArrayEquals(new byte[]{0,(byte)255,0,(byte)255},decoded.pixels().asSlice(4,4).toArray(ValueLayout.JAVA_BYTE));
+            if (poster) assertEquals(0,decoded.pixels().get(ValueLayout.JAVA_BYTE,3));
+        }
+    }
+    private static byte[] frame(int sequence, int width, int height, int x, int y) {
+        return java.nio.ByteBuffer.allocate(26).putInt(sequence).putInt(width).putInt(height).putInt(x).putInt(y).putShort((short)1).putShort((short)10).put((byte)0).put((byte)0).array();
+    }
+    private static byte[] png(int width, int height, int depth, int color, byte[] rows, String metadata, byte[] value) throws Exception {
+        var out=new ByteArrayOutputStream(); out.writeBytes(new byte[]{(byte)137,80,78,71,13,10,26,10});
+        chunk(out,"IHDR",java.nio.ByteBuffer.allocate(13).putInt(width).putInt(height).put(new byte[]{(byte)depth,(byte)color,0,0,0}).array());
+        chunk(out,metadata,value);chunk(out,"IDAT",deflate(rows));chunk(out,"IEND",new byte[0]); return out.toByteArray();
+    }
+    private static byte[] deflate(byte[] value) throws Exception {
+        var out = new ByteArrayOutputStream(); try (var stream = new java.util.zip.DeflaterOutputStream(out)) { stream.write(value); } return out.toByteArray();
+    }
+    private static void chunk(ByteArrayOutputStream output, String name, byte[] data) {
+        byte[] type=name.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);var crc=new java.util.zip.CRC32();crc.update(type);crc.update(data);
+        output.writeBytes(java.nio.ByteBuffer.allocate(4).putInt(data.length).array());output.writeBytes(type);output.writeBytes(data);output.writeBytes(java.nio.ByteBuffer.allocate(4).putInt((int)crc.getValue()).array());
     }
 }

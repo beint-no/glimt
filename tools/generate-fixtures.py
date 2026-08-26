@@ -25,7 +25,7 @@ specs = {
     'palette.png': ['-colors', '32', '-type', 'PaletteAlpha'],
     'gray.png': ['-alpha', 'off', '-colorspace', 'Gray'],
     'gray-alpha.png': ['-colorspace', 'Gray'],
-    'rgba16.png': ['-depth', '16'],
+    'rgba16.png': ['-depth', '16', '-define', 'png:bit-depth=16'],
     'interlaced.png': ['-interlace', 'PNG'],
     'baseline.jpg': ['-alpha', 'off', '-quality', '90'],
     'progressive.jpg': ['-alpha', 'off', '-interlace', 'Plane', '-quality', '90'],
@@ -39,19 +39,17 @@ specs = {
     'zip.tiff': ['-compress', 'Zip'],
     'rgba.heic': ['-quality', '90'],
     'rgb10.heic': ['-alpha', 'off', '-depth', '10', '-quality', '90'],
-    'rgba.jxl': ['-quality', '100'],
-    'rgb.jp2': ['-alpha', 'off', '-quality', '100'],
     'rgba.tga': [],
     'rgba.psd': [],
     'rgb.ppm': ['-alpha', 'off'],
     'rgba.ico': [],
     'rgb.hdr': ['-alpha', 'off'],
-    'rgba.exr': [],
 }
 env = {**os.environ, 'MAGICK_THREAD_LIMIT': '2', 'OMP_NUM_THREADS': '2'}
 def generate(item):
     name, options = item
-    process = subprocess.run(['magick', str(pam), *options, str(OUT / name)], env=env, text=True, capture_output=True)
+    format_name = {'jpg': 'jpeg', 'heic': 'heic', 'ppm': 'ppm'}.get(name.split('.')[-1], name.split('.')[-1])
+    process = subprocess.run(['magick', str(pam), *options, format_name + ':' + str(OUT / name)], env=env, text=True, capture_output=True)
     if process.returncode: raise RuntimeError(name + ': ' + process.stderr[-2000:])
     print(name, (OUT / name).stat().st_size, flush=True)
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool: list(pool.map(generate, specs.items()))
@@ -62,5 +60,10 @@ for orientation in range(1, 9):
     (OUT / f'orientation-{orientation}.jpg').write_bytes(base[:2] + b'\xff\xe1' + struct.pack('>H', len(exif) + 2) + exif + base[2:])
 subprocess.run(['magick', '-delay', '10', str(OUT / 'rgba.png'), '-delay', '20', str(OUT / 'rgb.png'), '-loop', '0', str(OUT / 'animated.gif')], env=env, check=True)
 subprocess.run(['magick', str(OUT / 'rgb.png'), str(OUT / 'gray.png'), str(OUT / 'multipage.tiff')], env=env, check=True)
+subprocess.run(['magick', str(OUT / 'animated.gif'), 'webp:' + str(OUT / 'animated.webp')], env=env, check=True)
+for source, output in [('rgba.png', 'rgba.jxl'), ('animated.gif', 'animated.jxl')]:
+    subprocess.run(['cjxl', str(OUT / source), str(OUT / output), '--distance=0', '--effort=3'], env=env, check=True)
+    if not (OUT / output).read_bytes().startswith((b'\xff\x0a', b'\0\0\0\x0cJXL ')):
+        raise RuntimeError('Fixture encoder did not produce JPEG XL')
 manifest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(OUT.iterdir()) if p.name != 'manifest.json'}
 (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

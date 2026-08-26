@@ -37,6 +37,32 @@ public final class Formats {
             }
             cursor += (int) size;
         }
+        // TGA v1 has no magic. Only consider a consistent raster header, after
+        // all signature-bearing formats; the decoder validates the full file.
+        if (data.length >= 18 && (data[1] == 0 || data[1] == 1)) {
+            int kind = data[2] & 255, depth = data[16] & 255;
+            int width = (data[12] & 255) | (data[13] & 255) << 8;
+            int height = (data[14] & 255) | (data[15] & 255) << 8;
+            if (width > 0 && height > 0 && (data[17] & 0xc0) == 0 &&
+                ((kind == 2 || kind == 10) && data[1] == 0 && (depth == 16 || depth == 24 || depth == 32) ||
+                 (kind == 3 || kind == 11) && data[1] == 0 && (depth == 8 || depth == 16) ||
+                 (kind == 1 || kind == 9) && data[1] == 1 && (depth == 8 || depth == 16))) return ImageFormat.TGA;
+        }
+        // Type-0 WBMP: exact packed bitmap length avoids its weak zero prefix
+        // mistaking arbitrary input (or another container) for a bitmap.
+        if (data.length >= 4 && data[0] == 0 && data[1] == 0) {
+            int pos = 2; long width = 0, height = 0;
+            for (int dimension = 0; dimension < 2; dimension++) {
+                long value = 0; int count = 0, octet;
+                do {
+                    if (pos == data.length || ++count > 5) return ImageFormat.UNKNOWN;
+                    octet = data[pos++] & 255; value = (value << 7) | (octet & 127);
+                } while ((octet & 128) != 0);
+                if (dimension == 0) width = value; else height = value;
+            }
+            if (width > 0 && width <= 65536 && height > 0 && height <= 65536 &&
+                ((width + 7) / 8) * height == data.length - pos) return ImageFormat.WBMP;
+        }
         return ImageFormat.UNKNOWN;
     }
     public static boolean text(byte[] data, int offset, String value) {

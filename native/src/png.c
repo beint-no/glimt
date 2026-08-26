@@ -53,7 +53,11 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     png_read_end(png, NULL);
     png_charp name; int compression; png_bytep profile; png_uint_32 profile_size;
     int failed = 0;
-    if (png_get_iCCP(png, info, &name, &compression, &profile, &profile_size)) {
+    png_byte primaries, transfer, matrix, full_range;
+    if (png_get_cICP(png, info, &primaries, &transfer, &matrix, &full_range)) {
+        if (matrix != 0 || full_range != 1) failed = glimt_fail(out, "Narrow-range or matrix-coded PNG requires explicit range conversion");
+        else { out->primaries = primaries; out->transfer = transfer; }
+    } else if (png_get_iCCP(png, info, &name, &compression, &profile, &profile_size)) {
         failed = glimt_color(out, profile, profile_size, limits);
     } else if (!png_get_valid(png, info, PNG_INFO_sRGB)) {
         double gamma = 0.45455;

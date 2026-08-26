@@ -40,7 +40,7 @@ Native instrumentation on Linux:
 
 ```sh
 CC=clang CXX=clang++ python3 native/build.py --sanitize
-CC=clang python3 native/sanitize.py
+CC=clang CXX=clang++ python3 native/sanitize.py
 ```
 
 This uses separate outputs and instruments codecs and bridge with ASan/UBSan.

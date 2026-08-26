@@ -1,0 +1,7 @@
+FROM ubuntu:22.04
+# The runtime and codec jars are copied from the verified build. No package
+# install, image utility, image library, compiler or network fetch occurs here.
+COPY build/runtime-smoke/jdk /opt/java
+COPY build/runtime-smoke/lib /smoke/lib
+COPY build/runtime-smoke/corpus /smoke/corpus
+RUN ["/opt/java/bin/java", "--enable-native-access=no.beint.glimt", "--illegal-native-access=deny", "--module-path", "/smoke/lib", "-m", "no.beint.glimt.smoke/no.beint.glimt.smoke.Main", "/smoke/corpus"]

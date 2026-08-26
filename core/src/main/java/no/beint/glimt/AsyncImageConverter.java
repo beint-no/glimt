@@ -1,0 +1,62 @@
+package no.beint.glimt;
+
+import java.util.Objects;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+/** Bounded CPU executor. Rejection is immediate; cancellation never pretends to stop native code. */
+public final class AsyncImageConverter implements AutoCloseable {
+    private final ImageConverter converter;
+    private final ThreadPoolExecutor executor;
+    private final AtomicLong retained = new AtomicLong();
+    private final long maxBytes;
+    AsyncImageConverter(ImageConverter converter, int parallelism, int queuedTasks, long retainedInputBytes) {
+        if (parallelism < 1 || parallelism > 256 || queuedTasks < 0 || retainedInputBytes < 1)
+            throw new IllegalArgumentException("Invalid async limits");
+        this.converter = converter; maxBytes = retainedInputBytes;
+        BlockingQueue<Runnable> queue = queuedTasks == 0 ? new SynchronousQueue<>() : new ArrayBlockingQueue<>(queuedTasks);
+        executor = new ThreadPoolExecutor(parallelism, parallelism, 0, TimeUnit.MILLISECONDS, queue,
+            Thread.ofPlatform().name("glimt-encode-", 0).daemon(true).factory(), new ThreadPoolExecutor.AbortPolicy());
+    }
+    /** Snapshots admitted input. Limits include queued and currently executing input copies. */
+    public CompletableFuture<ConvertedImage> convert(byte[] input) {
+        Objects.requireNonNull(input, "input");
+        if (input.length < 1 || input.length > converter.limits().maxInputBytes()) return CompletableFuture.failedFuture(new ImageException("Invalid input size"));
+        long size = input.length;
+        while (true) {
+            long previous = retained.get();
+            if (size > maxBytes - previous) return CompletableFuture.failedFuture(new RejectedExecutionException("Glimt retained input byte limit exceeded"));
+            if (retained.compareAndSet(previous, previous + size)) break;
+        }
+        CompletableFuture<ConvertedImage> future = new CompletableFuture<>();
+        try {
+            byte[] snapshot = input.clone();
+            executor.execute(() -> {
+                try { if (!future.isCancelled()) future.complete(converter.convert(snapshot)); }
+                catch (Throwable error) { future.completeExceptionally(error); if (error instanceof VirtualMachineError fatal) throw fatal; }
+                finally { retained.addAndGet(-size); }
+            });
+        } catch (RuntimeException | Error error) {
+            retained.addAndGet(-size);
+            if (error instanceof Error fatal) throw fatal;
+            future.completeExceptionally(error);
+        }
+        return future;
+    }
+    public long retainedInputBytes() { return retained.get(); }
+    /**
+     * Stops admission and waits for all admitted work, restoring the caller's interrupt flag afterward.
+     * Active native calls cannot be interrupted safely. Do not close from this executor's own callback.
+     */
+    @Override public void close() {
+        executor.shutdown();
+        boolean interrupted = false;
+        // ExecutorService.close() invokes shutdownNow() on interruption, which
+        // would silently discard queued tasks and leave their futures unresolved.
+        while (!executor.isTerminated()) {
+            try { executor.awaitTermination(1, TimeUnit.DAYS); }
+            catch (InterruptedException exception) { interrupted = true; }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+    }
+}

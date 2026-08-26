@@ -18,6 +18,8 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     }
     out->frames = (uint32_t)decoder->imageCount;
     if (glimt_frames(out, limits)) { avifDecoderDestroy(decoder); return 1; }
+    out->width = decoder->image->width; out->height = decoder->image->height; out->depth = decoder->image->depth;
+    if (glimt_dimensions(out, limits)) { avifDecoderDestroy(decoder); return 1; }
     status = avifDecoderNextImage(decoder);
     if (status != AVIF_RESULT_OK) {
         glimt_fail(out, avifResultToString(status)); avifDecoderDestroy(decoder); return 1;

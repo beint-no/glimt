@@ -41,6 +41,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     const uint8_t *pixels = heif_image_get_plane_readonly(image, heif_channel_interleaved, &stride);
     if (!pixels || stride < 0 || (uint64_t)stride < out->stride) { failed = glimt_fail(out, "Invalid HEIC pixel stride"); goto done; }
     for (uint32_t y = 0; y < out->height; y++) memcpy(out->pixels + y * out->stride, pixels + (uint64_t)y * (uint32_t)stride, (size_t)out->stride);
+    if (heif_image_is_premultiplied_alpha(image)) glimt_unpremultiply(out);
     size_t icc_size = heif_image_get_raw_color_profile_size(image);
     if (icc_size) {
         if (icc_size > limits->max_metadata_bytes) { failed = glimt_fail(out, "HEIC profile exceeds configured limit"); goto done; }
@@ -48,10 +49,14 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
         if (!out->icc) { failed = glimt_fail(out, "Cannot allocate HEIC colour profile"); goto done; }
         error = heif_image_get_raw_color_profile(image, out->icc);
         if (error.code != heif_error_Ok) { failed = glimt_fail(out, error.message); goto done; }
+        if (icc_size < 128 || memcmp(out->icc + 36, "acsp", 4) || memcmp(out->icc + 16, "RGB ", 4)) {
+            failed = glimt_fail(out, "Unsupported or invalid HEIC RGB ICC profile"); goto done;
+        }
+        out->primaries = 2; out->transfer = 2;
     }
     heif_color_profile_nclx *nclx = NULL;
     if (heif_image_get_nclx_color_profile(image, &nclx).code == heif_error_Ok && nclx) {
-        out->primaries = nclx->color_primaries; out->transfer = nclx->transfer_characteristics;
+        if (!icc_size) { out->primaries = nclx->color_primaries; out->transfer = nclx->transfer_characteristics; }
         heif_nclx_color_profile_free(nclx);
     }
 done:

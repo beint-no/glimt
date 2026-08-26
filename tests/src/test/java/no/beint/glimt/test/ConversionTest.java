@@ -179,6 +179,52 @@ class ConversionTest {
         assertEquals(12, FAST.convert(source).bitDepth());
         assertThrows(ImageException.class, () -> ImageConverter.builder().options(AvifOptions.DEFAULT.withLossless(true)).build().convert(source));
     }
+    @Test void preservesFullRangeCicpAndRejectsNarrowRange() throws Exception {
+        byte[] source = png(1, 1, 8, 6, new byte[]{0,12,34,56,(byte)255}, "cICP", new byte[]{12,13,0,1});
+        var result = FAST.convert(source);
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, result.bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(12, decoded.primaries()); assertEquals(13, decoded.transfer());
+        }
+        byte[] narrow = png(1, 1, 8, 6, new byte[]{0,12,34,56,(byte)255}, "cICP", new byte[]{1,1,0,0});
+        assertThrows(ImageException.class, () -> FAST.convert(narrow));
+    }
+    @Test void rejectsIncompleteJpegIccRatherThanTreatingItAsAbsent() throws Exception {
+        byte[] source = fixture("baseline.jpg");
+        var result = new ByteArrayOutputStream(); result.write(source,0,2);
+        byte[] marker = new byte[]{'I','C','C','_','P','R','O','F','I','L','E',0,2,2,1,2,3};
+        result.writeBytes(new byte[]{(byte)255,(byte)226,0,(byte)(marker.length+2)}); result.writeBytes(marker); result.write(source,2,source.length-2);
+        assertThrows(ImageException.class, () -> FAST.convert(result.toByteArray()));
+    }
+    @Test void rejectsAvifPixelBufferLimitAndOversizedOutput() throws Exception {
+        byte[] source = FAST.toAvif(fixture("rgba.png"));
+        var tiny = new DecodeLimits(1<<20,40_000_000,4,1<<20,32768,1000);
+        assertThrows(ImageException.class, () -> ImageConverter.builder().limits(tiny).build().convert(source));
+        var options = new AvifOptions(75,100,0,1,0,Chroma.YUV444,false,10);
+        byte[] png = fixture("rgba.png");
+        assertThrows(ImageException.class, () -> ImageConverter.builder().options(options).build().convert(png));
+    }
+    @Test void closesAsyncAndReleasesAdmissionAfterFailures() throws Exception {
+        var async = FAST.async(1,4,1<<20);
+        var failed = async.convert(new byte[]{1,2,3});
+        assertThrows(java.util.concurrent.ExecutionException.class, () -> failed.get(10,TimeUnit.SECONDS));
+        async.close();
+        assertEquals(0,async.retainedInputBytes());
+        var closed = async.convert(fixture("rgba.png"));
+        var error = assertThrows(java.util.concurrent.ExecutionException.class, () -> closed.get(10,TimeUnit.SECONDS));
+        assertInstanceOf(java.util.concurrent.RejectedExecutionException.class,error.getCause());
+        assertEquals(0,async.retainedInputBytes());
+    }
+    @Test void supportsWbmpAndDetectsEveryCorpusEncoding() throws Exception {
+        byte[] wbmp = {0,0,3,3,(byte)0xa0,0x40,(byte)0xa0};
+        assertEquals(ImageFormat.WBMP, ImageFormat.detect(wbmp));
+        var result = FAST.convert(wbmp); assertEquals(3,result.width()); assertEquals(3,result.height());
+        for (var entry : java.util.Map.of("rgba16.png",ImageFormat.PNG,"rgba.jxl",ImageFormat.JPEG_XL,
+                "rgba.psd",ImageFormat.PSD,"rgba.tga",ImageFormat.TGA,"rgba.ico",ImageFormat.ICO,
+                "rgb.ppm",ImageFormat.PNM,"rgba.heic",ImageFormat.HEIC).entrySet())
+            assertEquals(entry.getValue(),ImageFormat.detect(fixture(entry.getKey())),entry.getKey());
+        assertEquals(16,fixture("rgba16.png")[24]);
+    }
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void selectsDisplayedApngFrameRatherThanPoster(boolean poster) throws Exception {
         var out = new ByteArrayOutputStream(); out.writeBytes(new byte[]{(byte)137,80,78,71,13,10,26,10});

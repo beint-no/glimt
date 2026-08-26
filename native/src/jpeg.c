@@ -17,6 +17,21 @@ static int adobe_marker(const uint8_t *data, size_t size) {
     }
     return 0;
 }
+static int icc_marker(const uint8_t *data, size_t size) {
+    size_t pos = 2;
+    while (pos + 4 <= size && data[pos] == 255) {
+        while (pos < size && data[pos] == 255) pos++;
+        if (pos >= size) break;
+        unsigned marker = data[pos++];
+        if (marker == 0xda || marker == 0xd9) break;
+        if (pos + 2 > size) break;
+        size_t length = ((size_t)data[pos] << 8) | data[pos + 1];
+        if (length < 2 || length > size - pos) break;
+        if (marker == 0xe2 && length >= 14 && !memcmp(data + pos + 2, "ICC_PROFILE\0", 12)) return 1;
+        pos += length;
+    }
+    return 0;
+}
 API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *limits, glimt_image *out) {
     glimt_init(out);
     tjhandle decoder = tj3Init(TJINIT_DECOMPRESS);
@@ -33,7 +48,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     out->depth = (uint32_t)tj3Get(decoder, TJPARAM_PRECISION);
     if (glimt_allocate(out, limits)) { failed = 1; goto done; }
     int profile_status = tj3GetICCProfile(decoder, NULL, &profile_size);
-    if ((profile_status && !(profile_size == 0 && tj3GetErrorCode(decoder) == TJERR_WARNING)) || profile_size > limits->max_metadata_bytes) {
+    if ((profile_status && !(profile_size == 0 && tj3GetErrorCode(decoder) == TJERR_WARNING && !icc_marker(data, (size_t)size))) || profile_size > limits->max_metadata_bytes) {
         failed = glimt_fail(out, "Invalid or oversized JPEG colour profile"); goto done;
     }
     if (profile_size && tj3GetICCProfile(decoder, &profile, &profile_size)) { failed = glimt_fail(out, "Cannot read JPEG profile"); goto done; }

@@ -3,7 +3,10 @@
 Glimt's Java code and original C bridge are Apache-2.0. Bundled upstream code
 keeps its own licenses. Native JARs include a `licenses` directory beside the
 binaries, source locks in `build-info.json`, and a SHA-256 manifest. Their
-`-sources.jar` contains original pinned source archives, bridge source and recipe.
+`-sources.jar` contains bridge source and the pinned build recipe. HEIC source
+JARs also include complete upstream archives for LGPL corresponding source.
+Other recipes download their checksum-pinned upstream archives when rebuilt;
+unrelated upstream test photographs are not redistributed in those source JARs.
 
 | Bundle | Components | Upstream license families |
 | --- | --- | --- |

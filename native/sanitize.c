@@ -7,6 +7,15 @@ typedef int (*decode_fn)(const uint8_t *, uint64_t, const glimt_limits *, glimt_
 typedef void (*release_fn)(void *);
 int main(int argc, char **argv) {
     if (argc < 3) return 2;
+    uint8_t rgba8[] = {64,32,16,128, 9,9,9,0};
+    uint16_t rgba16[] = {16384,8192,4096,32768, 9,9,9,0};
+    glimt_image alpha; glimt_init(&alpha);
+    alpha.width = 2; alpha.height = 1; alpha.stride = 8; alpha.pixels = rgba8;
+    glimt_unpremultiply(&alpha);
+    if (rgba8[0] != 128 || rgba8[1] != 64 || rgba8[2] != 32 || rgba8[3] != 128 || rgba8[4] != 0) abort();
+    alpha.depth = 16; alpha.stride = 16; alpha.pixels = (uint8_t *)rgba16;
+    glimt_unpremultiply(&alpha);
+    if (rgba16[0] != 32768 || rgba16[1] != 16384 || rgba16[2] != 8192 || rgba16[3] != 32768 || rgba16[4] != 0) abort();
     void *library = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
     if (!library) { fprintf(stderr, "%s\n", dlerror()); return 2; }
     decode_fn decode = (decode_fn)dlsym(library, "glimt_decode");

@@ -57,7 +57,8 @@ Photograph licenses and provenance are included with the corpus.
 1. Pass platform, minimal-runtime, clean-container and sanitizer checks for the
    intended revision.
 2. Download `native-<platform>` CI artifacts into `native/dist/<platform>`.
-3. Retain pinned archives in `native/.work/archives` for corresponding source JARs.
+3. Retain pinned archives in `native/.work/archives` for verification and HEIC
+   corresponding source JARs. Other source JARs include the pinned recipe.
 4. Run `python3 tools/verify-release.py`, `./gradlew build` and runtime smoke tests.
 5. Inspect artifacts/POMs/notices; merge the release PR, update main and tag.
 6. Run `./gradlew publishAndReleaseToMavenCentral` with Gradle properties

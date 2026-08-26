@@ -121,7 +121,10 @@ subprojects {
             from(rootProject.file("native/src")) { into("native/src") }
             from(rootProject.file("native/licenses")) { into("native/licenses") }
             from(listOf(rootProject.file("native/build.py"), rootProject.file("native/sources.json"))) { into("native") }
-            for (source in nativeSources.getValue(codec)) {
+            // LGPL corresponding source is shipped with HEIC. Other bundles
+            // include the pinned build recipe, avoiding redistribution of
+            // unrelated upstream test photographs under separate licenses.
+            for (source in if (codec == "heic") nativeSources.getValue(codec) else emptyList()) {
                 from(rootProject.file("native/.work/archives/$source.tar.gz")) { into("native/.work/archives") }
             }
         }

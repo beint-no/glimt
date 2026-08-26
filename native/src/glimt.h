@@ -63,6 +63,10 @@ static inline int glimt_allocate(glimt_image *out, const glimt_limits *limits) {
 static inline int glimt_icc(glimt_image *out, const void *data, size_t size, const glimt_limits *limits) {
     if (!size) return 0;
     if (size > limits->max_metadata_bytes) return glimt_fail(out, "Colour profile exceeds configured limit");
+    const uint8_t *profile = data;
+    if (!data || size < 128 || memcmp(profile + 36, "acsp", 4) || memcmp(profile + 16, "RGB ", 4))
+        return glimt_fail(out, "Unsupported or invalid RGB ICC profile");
+    out->primaries = 2; out->transfer = 2;
     out->icc = (uint8_t *)malloc(size);
     if (!out->icc) return glimt_fail(out, "Cannot allocate colour profile");
     memcpy(out->icc, data, size); out->icc_size = size;
@@ -72,5 +76,23 @@ static inline int glimt_frames(glimt_image *out, const glimt_limits *limits) {
     if (out->frames > limits->max_frames) return glimt_fail(out, "Image frame count exceeds configured limit");
     if (out->frames > 1 && !limits->first_frame) return glimt_fail(out, "Multi-frame image requires FIRST_FRAME policy");
     return 0;
+}
+static inline void glimt_unpremultiply(glimt_image *out) {
+    const uint32_t maximum = (1u << out->depth) - 1;
+    for (uint32_t y = 0; y < out->height; y++) for (uint32_t x = 0; x < out->width; x++) {
+        if (out->depth > 8) {
+            uint16_t *pixel = (uint16_t *)(out->pixels + y * out->stride) + x * 4;
+            for (int c = 0; c < 3; c++) {
+                uint32_t value = pixel[3] ? ((uint32_t)pixel[c] * maximum + pixel[3] / 2) / pixel[3] : 0;
+                pixel[c] = (uint16_t)(value > maximum ? maximum : value);
+            }
+        } else {
+            uint8_t *pixel = out->pixels + y * out->stride + x * 4;
+            for (int c = 0; c < 3; c++) {
+                uint32_t value = pixel[3] ? ((uint32_t)pixel[c] * maximum + pixel[3] / 2) / pixel[3] : 0;
+                pixel[c] = (uint8_t)(value > maximum ? maximum : value);
+            }
+        }
+    }
 }
 #endif

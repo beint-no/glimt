@@ -1,0 +1,9 @@
+.gradle/
+**/build/
+native/.work/
+native/dist/
+.idea/
+*.iml
+*.hprof
+hs_err_pid*
+

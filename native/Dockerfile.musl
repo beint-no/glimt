@@ -1,0 +1,12 @@
+FROM bellsoft/hardened-liberica-runtime-container:jdk-all-26-musl@sha256:24e8cda3f1142c4f9f74ab1c8af703925d2ad9eea5fdedf1b7ac56be448c95e7 AS jdk
+RUN cp -a "$JAVA_HOME" /jdk-copy
+
+FROM alpine:3.23 AS tested
+RUN apk add --no-cache build-base cmake ninja nasm python3 py3-pip pkgconf patchelf git perl linux-headers fontconfig freetype
+COPY --from=jdk /jdk-copy /opt/jdk
+ENV JAVA_HOME=/opt/jdk PATH=/opt/jdk/bin:/opt/tools/bin:$PATH
+RUN python3 -m venv /opt/tools && /opt/tools/bin/pip install meson==1.10.0
+WORKDIR /work
+COPY . .
+RUN python3 native/build.py --platform linux-x64-musl --jobs 4
+RUN ./gradlew build --no-daemon

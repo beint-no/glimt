@@ -32,7 +32,8 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     out->height = (uint32_t)tj3Get(decoder, TJPARAM_JPEGHEIGHT);
     out->depth = (uint32_t)tj3Get(decoder, TJPARAM_PRECISION);
     if (glimt_allocate(out, limits)) { failed = 1; goto done; }
-    if (tj3GetICCProfile(decoder, NULL, &profile_size) || profile_size > limits->max_metadata_bytes) {
+    int profile_status = tj3GetICCProfile(decoder, NULL, &profile_size);
+    if ((profile_status && !(profile_size == 0 && tj3GetErrorCode(decoder) == TJERR_WARNING)) || profile_size > limits->max_metadata_bytes) {
         failed = glimt_fail(out, "Invalid or oversized JPEG colour profile"); goto done;
     }
     if (profile_size && tj3GetICCProfile(decoder, &profile, &profile_size)) { failed = glimt_fail(out, "Cannot read JPEG profile"); goto done; }

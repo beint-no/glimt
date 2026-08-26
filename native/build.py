@@ -105,17 +105,22 @@ def notices(codec, names):
     target.mkdir(parents=True, exist_ok=True)
     for name in names:
         src = source(name)
-        files = [p for p in src.iterdir() if p.is_file() and (p.name.upper().startswith(('LICENSE', 'COPYING', 'NOTICE', 'PATENTS')))]
-        for item in files: shutil.copy2(item, target / (name + '-' + item.name))
+        files = [p for p in src.rglob('*') if p.is_file() and
+                 (p.name.upper().startswith(('LICENSE', 'COPYING', 'NOTICE', 'PATENTS')) or p.name == 'README.ijg') and
+                 '.git' not in p.parts and 'build' not in p.parts]
+        for item in files: shutil.copy2(item, target / (name + '-' + str(item.relative_to(src)).replace('/', '_')))
+    if args.platform.startswith('linux'):
+        for item in (ROOT / 'licenses').iterdir(): shutil.copy2(item, target / ('gcc-' + item.name))
     if codec == 'avif':
         for dependency in ('aom', 'dav1d', 'libyuv'):
             for item in (BUILD / 'avif').rglob('*'):
                 if item.is_file() and item.name in ('LICENSE', 'COPYING', 'PATENTS') and dependency in str(item):
                     shutil.copy2(item, target / (dependency + '-' + item.name))
+    revision = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True, capture_output=True)
     (DIST / codec / 'build-info.json').write_text(json.dumps({
         'platform': args.platform, 'sources': {name: LOCK[name] for name in names},
         'compiler': subprocess.check_output([ENV.get('CC', 'cc'), '--version'], text=True).splitlines()[0],
-        'commit': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(),
+        'commit': revision.stdout.strip() if revision.returncode == 0 else 'source-distribution',
         'recipe': 'https://github.com/beint-no/glimt/tree/main/native',
     }, indent=2) + '\n')
 

@@ -14,6 +14,8 @@ startup. There is no executable invocation in the conversion path.
 * `png`: libpng decoder.
 * `webp`: libwebp decoder.
 * `heic`: libheif and libde265 decoder.
+* `jxl`: libjxl, Highway, Brotli and Little CMS.
+* `extra`: restricted embedded MagickCore for PSD, PNM/PAM, ICO and TGA.
 * `jdk-imageio`: optional JDK readers for GIF, BMP, TIFF and WBMP.
 * `all`: convenience aggregate. The supported format matrix is explicit: "all"
   means all published Glimt decoders, not every format ever invented.

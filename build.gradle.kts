@@ -9,6 +9,17 @@ tasks.register("printReleaseVersion") { val value = version.toString(); doLast {
 
 val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl", "extra")
 val platforms = listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")
+val nativeSources = mapOf(
+    "avif" to listOf("avif", "aom", "dav1d", "yuv"),
+    "jpeg" to listOf("jpeg", "lcms"), "png" to listOf("png", "zlib", "lcms"),
+    "webp" to listOf("webp"), "heic" to listOf("heif", "de265"),
+    "jxl" to listOf("jxl", "highway", "brotli", "lcms"),
+    "extra" to listOf("magick", "png", "zlib", "lcms"),
+)
+val verifyNativeRelease = tasks.register<Exec>("verifyNativeRelease") {
+    description = "Refuse publishing incomplete native distributions or missing corresponding sources."
+    commandLine("python3", "tools/verify-release.py")
+}
 subprojects {
     apply(plugin = "java-library")
     extensions.configure<JavaPluginExtension> {
@@ -91,7 +102,13 @@ subprojects {
                 description.set("Modular JDK 26 image conversion with bundled native codecs and no third-party Java runtime dependencies.")
                 inceptionYear.set("2026")
                 url.set("https://github.com/beint-no/glimt")
-                licenses { license { name.set("Apache-2.0"); url.set("https://www.apache.org/licenses/LICENSE-2.0.txt") } }
+                licenses {
+                    license { name.set("Apache-2.0"); url.set("https://www.apache.org/licenses/LICENSE-2.0.txt") }
+                    if (codec != null) license {
+                        name.set(if (codec == "heic") "LGPL-3.0-or-later (bundled libheif and libde265)" else "Bundled upstream native licenses")
+                        url.set("https://github.com/beint-no/glimt/blob/main/docs/native-licenses.md")
+                    }
+                }
                 developers { developer { id.set("beint-no"); name.set("Beint"); url.set("https://github.com/beint-no") } }
                 scm {
                     url.set("https://github.com/beint-no/glimt")
@@ -99,6 +116,17 @@ subprojects {
                     developerConnection.set("scm:git:ssh://git@github.com/beint-no/glimt.git")
                 }
             }
+        }
+        if (codec != null) tasks.named<Jar>("sourcesJar") {
+            from(rootProject.file("native/src")) { into("native/src") }
+            from(rootProject.file("native/licenses")) { into("native/licenses") }
+            from(listOf(rootProject.file("native/build.py"), rootProject.file("native/sources.json"))) { into("native") }
+            for (source in nativeSources.getValue(codec)) {
+                from(rootProject.file("native/.work/archives/$source.tar.gz")) { into("native/.work/archives") }
+            }
+        }
+        tasks.matching { it.name.startsWith("publish") && !it.name.contains("MavenLocal") }.configureEach {
+            dependsOn(verifyNativeRelease)
         }
     }
 }

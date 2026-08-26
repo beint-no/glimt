@@ -44,6 +44,19 @@ public final class AsyncImageConverter implements AutoCloseable {
         return future;
     }
     public long retainedInputBytes() { return retained.get(); }
-    /** Stops admission and waits for all admitted work; active native calls cannot be interrupted safely. */
-    @Override public void close() { executor.close(); }
+    /**
+     * Stops admission and waits for all admitted work, restoring the caller's interrupt flag afterward.
+     * Active native calls cannot be interrupted safely. Do not close from this executor's own callback.
+     */
+    @Override public void close() {
+        executor.shutdown();
+        boolean interrupted = false;
+        // ExecutorService.close() invokes shutdownNow() on interruption, which
+        // would silently discard queued tasks and leave their futures unresolved.
+        while (!executor.isTerminated()) {
+            try { executor.awaitTermination(1, TimeUnit.DAYS); }
+            catch (InterruptedException exception) { interrupted = true; }
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+    }
 }

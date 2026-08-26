@@ -138,7 +138,8 @@ snapshots input; excess work fails with `RejectedExecutionException`. CPU work
 uses bounded platform threads. A virtual request thread can await the future
 without retaining a carrier thread for the wait.
 
-`close()` stops admission and waits for admitted work. Do not call it from a
+`close()` stops admission and waits for admitted work, restoring the caller's
+interrupt flag afterward without discarding queued futures. Do not call it from a
 completion callback on its own worker. Cancelled queued work is skipped when
 dequeued; cancellation/timeouts cannot terminate an active native codec. There
 is no hard wall-clock termination guarantee.

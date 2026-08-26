@@ -215,6 +215,22 @@ class ConversionTest {
         assertInstanceOf(java.util.concurrent.RejectedExecutionException.class,error.getCause());
         assertEquals(0,async.retainedInputBytes());
     }
+    @Test void interruptedCloseStillCompletesEveryAdmittedFuture() throws Exception {
+        var async = ImageConverter.builder().effort(4).build().async(1,64,16L<<20);
+        byte[] source = fixture("rgba.png");
+        var futures = IntStream.range(0,32).mapToObj(ignored -> async.convert(source)).toList();
+        try {
+            Thread.currentThread().interrupt();
+            async.close();
+            assertTrue(Thread.currentThread().isInterrupted());
+            assertTrue(futures.stream().allMatch(CompletableFuture::isDone));
+            assertTrue(futures.stream().noneMatch(CompletableFuture::isCompletedExceptionally));
+            assertEquals(0, async.retainedInputBytes());
+        } finally {
+            Thread.interrupted();
+            async.close();
+        }
+    }
     @Test void supportsWbmpAndDetectsEveryCorpusEncoding() throws Exception {
         byte[] wbmp = {0,0,3,3,(byte)0xa0,0x40,(byte)0xa0};
         assertEquals(ImageFormat.WBMP, ImageFormat.detect(wbmp));

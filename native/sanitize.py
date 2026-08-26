@@ -12,7 +12,7 @@ args = parser.parse_args()
 target = ROOT / '.work/sanitized' / args.platform
 executable = target / 'sanitizer'
 target.mkdir(parents=True, exist_ok=True)
-subprocess.run(['cc', '-std=c11', '-g', '-O1', '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
+subprocess.run([os.environ.get('CC', 'cc'), '-std=c11', '-g', '-O1', '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
                 str(ROOT / 'sanitize.c'), '-o', str(executable), *([] if platform.system() == 'Darwin' else ['-ldl'])], check=True)
 files = [str(p) for p in (ROOT.parent / 'tests/src/test/resources/corpus').iterdir() if p.suffix not in ('.json', '.md') and not p.name.startswith('LICENSE')]
 suffix = '.dylib' if platform.system() == 'Darwin' else '.so'

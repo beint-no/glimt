@@ -1,0 +1,6 @@
+**
+!build/
+!build/runtime-smoke/
+!build/runtime-smoke/**
+!native/
+!native/Dockerfile.glibc-smoke

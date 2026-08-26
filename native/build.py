@@ -114,7 +114,7 @@ def notices(codec, names):
                     shutil.copy2(item, target / (dependency + '-' + item.name))
     (DIST / codec / 'build-info.json').write_text(json.dumps({
         'platform': args.platform, 'sources': {name: LOCK[name] for name in names},
-        'compiler': subprocess.check_output(['cc', '--version'], text=True).splitlines()[0],
+        'compiler': subprocess.check_output([ENV.get('CC', 'cc'), '--version'], text=True).splitlines()[0],
         'commit': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(),
         'recipe': 'https://github.com/beint-no/glimt/tree/main/native',
     }, indent=2) + '\n')
@@ -123,7 +123,7 @@ def bridge(codec, libraries, shared=(), cflags=()):
     target = DIST / codec
     target.mkdir(parents=True, exist_ok=True)
     obj = BUILD / (codec + '-bridge.o')
-    run(['cc', '-std=c11', '-O3', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
+    run([ENV.get('CC', 'cc'), '-std=c11', '-O3', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
          '-I' + str(PREFIX / 'include'), *cflags, '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
     suffix = 'dylib' if platform.system() == 'Darwin' else 'so'
     output = target / ('libglimt_' + codec + '.' + suffix)
@@ -133,9 +133,9 @@ def bridge(codec, libraries, shared=(), cflags=()):
     instrumentation = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
     if instrumentation:
         # Compile the ABI bridge itself with the same instrumentation as codecs.
-        run(['cc', '-std=c11', '-O1', '-g', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
+        run([ENV.get('CC', 'cc'), '-std=c11', '-O1', '-g', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
              *instrumentation, '-I' + str(PREFIX / 'include'), *cflags, '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
-    run(['c++', *flags, *instrumentation, '-o', output, obj, *libraries, '-lm', '-pthread'])
+    run([ENV.get('CXX', 'c++'), *flags, *instrumentation, '-o', output, obj, *libraries, '-lm', '-pthread'])
     for name in shared:
         candidates = list((PREFIX / 'lib').glob(name + '*.' + suffix + '*'))
         for item in candidates:

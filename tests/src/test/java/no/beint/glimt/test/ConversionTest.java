@@ -226,6 +226,21 @@ class ConversionTest {
         assertEquals(16,fixture("rgba16.png")[24]);
     }
     @ParameterizedTest @ValueSource(booleans = {false, true})
+    void compositesGifOffsetAgainstOpaqueOrTransparentCanvas(boolean transparent) {
+        // Two-pixel logical screen; one red pixel at x=1 and blue background index 0.
+        byte[] source = {'G','I','F','8','9','a', 2,0,1,0,(byte)128,0,0,
+            0,0,(byte)255, (byte)255,0,0,
+            0x21,(byte)0xf9,4,(byte)(transparent ? 1 : 0),0,0,0,0,
+            0x2c,1,0,0,0,1,0,1,0,0, 2,2,0x4c,1,0,0x3b};
+        var result = ImageConverter.builder().options(AvifOptions.DEFAULT.withEffort(0).withLossless(true)).build().convert(source);
+        assertEquals(2, result.width()); assertEquals(1, result.height());
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, result.bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertArrayEquals(new byte[]{0,0,(byte)(transparent ? 0 : 255),(byte)(transparent ? 0 : 255),
+                (byte)255,0,0,(byte)255}, decoded.pixels().toArray(ValueLayout.JAVA_BYTE));
+        }
+    }
+    @ParameterizedTest @ValueSource(booleans = {false, true})
     void selectsDisplayedApngFrameRatherThanPoster(boolean poster) throws Exception {
         var out = new ByteArrayOutputStream(); out.writeBytes(new byte[]{(byte)137,80,78,71,13,10,26,10});
         chunk(out, "IHDR", java.nio.ByteBuffer.allocate(13).putInt(3).putInt(2).put(new byte[]{8,6,0,0,0}).array());

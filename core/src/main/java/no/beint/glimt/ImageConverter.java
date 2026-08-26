@@ -34,12 +34,23 @@ public final class ImageConverter {
         if (encoders.size() != 1) throw new IllegalStateException("Exactly one AVIF encoder is required. Add no.beint.glimt:avif.");
         encoder = encoders.getFirst().get();
     }
+    /** @return a builder with default limits/options and {@link FramePolicy#REJECT} */
     public static Builder builder() { return new Builder(); }
+    /** @return a reusable converter with the codecs discovered by {@link ServiceLoader} */
     public static ImageConverter create() { return builder().build(); }
+    /** @return installed decoder formats; native platform availability is checked when first used */
     public Set<ImageFormat> supportedFormats() { return decoders.keySet(); }
     public DecodeLimits limits() { return limits; }
     public AvifOptions options() { return options; }
     public byte[] toAvif(byte[] input) { return convert(input).bytes(); }
+    /**
+     * Converts one image synchronously. The caller must not mutate input during this call.
+     * Native work runs on the calling thread; use {@link #async} to bound CPU concurrency.
+     *
+     * @param input compressed image bytes, detected by content
+     * @return owned AVIF output and oriented dimensions
+     * @throws ImageException for invalid input, unsupported features, missing natives or exceeded limits
+     */
     public ConvertedImage convert(byte[] input) {
         Objects.requireNonNull(input, "input");
         if (input.length < 1 || input.length > limits.maxInputBytes()) throw new ImageException("Input exceeds configured byte limit or is empty");
@@ -71,7 +82,15 @@ public final class ImageConverter {
     public ConvertedImage convert(Path input) throws IOException {
         try (InputStream stream = Files.newInputStream(input)) { return convert(stream); }
     }
-    /** Atomically replaces the destination after the entire conversion has succeeded. */
+    /**
+     * Atomically replaces the destination after conversion succeeds. The destination directory must exist.
+     * Filesystems without atomic moves cause an exception; there is no non-atomic fallback.
+     *
+     * @param input source image, which must differ from the destination
+     * @param output AVIF destination
+     * @return the converted AVIF, also written to the destination
+     * @throws IOException when reading, writing or atomic replacement fails
+     */
     public ConvertedImage convert(Path input, Path output) throws IOException {
         Objects.requireNonNull(output, "output");
         if (input.toAbsolutePath().normalize().equals(output.toAbsolutePath().normalize()) ||
@@ -85,6 +104,14 @@ public final class ImageConverter {
         } finally { Files.deleteIfExists(temporary); }
         return converted;
     }
+    /**
+     * Creates an owned bounded executor. Share one per application and close it on shutdown.
+     *
+     * @param parallelism maximum concurrent conversions, from 1 through 256
+     * @param queuedTasks maximum waiting tasks; zero requires an immediately available worker
+     * @param retainedInputBytes maximum combined size of queued and active input snapshots
+     * @return an executor that rejects excess work immediately
+     */
     public AsyncImageConverter async(int parallelism, int queuedTasks, long retainedInputBytes) {
         return new AsyncImageConverter(this, parallelism, queuedTasks, retainedInputBytes);
     }

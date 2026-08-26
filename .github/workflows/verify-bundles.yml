@@ -1,0 +1,68 @@
+name: Verify release bundles
+on:
+  workflow_call:
+    inputs:
+      native_run:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      native_run:
+        description: Successful Verify workflow run supplying native artifacts
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: ubuntu-22.04
+            platform: linux-x64-glibc
+          - runner: ubuntu-24.04
+            platform: linux-x64-musl
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        if: matrix.platform != 'linux-x64-musl'
+        with:
+          distribution: temurin
+          java-version: '26'
+      - uses: gradle/actions/setup-gradle@v5
+        if: matrix.platform != 'linux-x64-musl'
+      - name: Download tested bundles and verify unchanged native inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NATIVE_RUN: ${{ inputs.native_run }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          gh run download "$NATIVE_RUN" --name "native-$PLATFORM" --dir "native/dist/$PLATFORM"
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          root = pathlib.Path('native/dist') / os.environ['PLATFORM']
+          revisions = {json.loads(p.read_text())['commit'] for p in root.glob('*/build-info.json')}
+          assert len(revisions) == 1
+          subprocess.run(['git', 'diff', '--exit-code', revisions.pop(), '--', 'native'], check=True)
+          PY
+      - name: Test current Java code against release binaries
+        if: matrix.platform != 'linux-x64-musl'
+        run: |
+          ./gradlew build
+          python3 tools/runtime-smoke.py --platform '${{ matrix.platform }}'
+      - name: Test musl Java code and clean runtime
+        if: matrix.platform == 'linux-x64-musl'
+        run: docker build -f tools/Dockerfile.bundles-musl .
+      - uses: actions/upload-artifact@v6
+        if: always() && matrix.platform != 'linux-x64-musl'
+        with:
+          name: final-test-results-${{ matrix.platform }}
+          path: tests/build/reports/tests

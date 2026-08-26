@@ -35,28 +35,39 @@ public final class JdkImageDecoder implements ImageDecoder {
             if (count < 1 || count > limits.maxFrames() || count > 1 && frames == FramePolicy.REJECT)
                 throw new ImageException("Multi-frame input rejected by frame policy");
             BufferedImage image = reader.read(0);
-            int left = 0, top = 0;
+            int left = 0, top = 0, background = 0;
             if (format == ImageFormat.GIF) {
-                Node screen = find(reader.getStreamMetadata().getAsTree("javax_imageio_gif_stream_1.0"), "LogicalScreenDescriptor");
+                Node streamMetadata = reader.getStreamMetadata().getAsTree("javax_imageio_gif_stream_1.0");
+                Node frameMetadata = reader.getImageMetadata(0).getAsTree("javax_imageio_gif_image_1.0");
+                Node screen = find(streamMetadata, "LogicalScreenDescriptor");
                 if (screen != null) { width = attribute(screen, "logicalScreenWidth"); height = attribute(screen, "logicalScreenHeight"); }
                 limits.checkDimensions(width, height, 8);
-                Node descriptor = find(reader.getImageMetadata(0).getAsTree("javax_imageio_gif_image_1.0"), "ImageDescriptor");
+                Node descriptor = find(frameMetadata, "ImageDescriptor");
                 if (descriptor != null) { left = attribute(descriptor, "imageLeftPosition"); top = attribute(descriptor, "imageTopPosition"); }
                 if (left < 0 || top < 0 || image.getWidth() > width - left || image.getHeight() > height - top)
                     throw new ImageException("GIF frame exceeds logical screen");
+                Node control = find(frameMetadata, "GraphicControlExtension");
+                boolean transparent = control != null && Boolean.parseBoolean(control.getAttributes().getNamedItem("transparentColorFlag").getNodeValue());
+                Node table = find(streamMetadata, "GlobalColorTable");
+                if (!transparent && table != null) {
+                    int index = attribute(table, "backgroundColorIndex");
+                    for (Node color = table.getFirstChild(); color != null; color = color.getNextSibling()) {
+                        if (color.getNodeName().equals("ColorTableEntry") && attribute(color, "index") == index) {
+                            background = 0xff000000 | attribute(color, "red") << 16 | attribute(color, "green") << 8 | attribute(color, "blue");
+                            break;
+                        }
+                    }
+                }
             }
             long stride = (long)width * 4;
             MemorySegment pixels = arena.allocate(stride * height, 4);
+            if (background != 0) for (long offset = 0; offset < pixels.byteSize(); offset += 4) putArgb(pixels, offset, background);
             int[] row = new int[image.getWidth()];
             for (int y = 0; y < image.getHeight(); y++) {
                 image.getRGB(0, y, row.length, 1, row, 0, row.length);
                 for (int x = 0; x < row.length; x++) {
                     long offset = (y + (long)top) * stride + (x + (long)left) * 4;
-                    int argb = row[x];
-                    pixels.set(ValueLayout.JAVA_BYTE, offset, (byte)(argb >>> 16));
-                    pixels.set(ValueLayout.JAVA_BYTE, offset + 1, (byte)(argb >>> 8));
-                    pixels.set(ValueLayout.JAVA_BYTE, offset + 2, (byte)argb);
-                    pixels.set(ValueLayout.JAVA_BYTE, offset + 3, (byte)(argb >>> 24));
+                    putArgb(pixels, offset, row[x]);
                 }
             }
             image.flush();
@@ -74,6 +85,12 @@ public final class JdkImageDecoder implements ImageDecoder {
         } catch (IOException | IndexOutOfBoundsException exception) {
             throw new ImageException("Cannot decode " + format, exception);
         } finally { reader.dispose(); }
+    }
+    private static void putArgb(MemorySegment pixels, long offset, int argb) {
+        pixels.set(ValueLayout.JAVA_BYTE, offset, (byte)(argb >>> 16));
+        pixels.set(ValueLayout.JAVA_BYTE, offset + 1, (byte)(argb >>> 8));
+        pixels.set(ValueLayout.JAVA_BYTE, offset + 2, (byte)argb);
+        pixels.set(ValueLayout.JAVA_BYTE, offset + 3, (byte)(argb >>> 24));
     }
     private static Node find(Node node, String name) {
         if (node.getNodeName().equals(name)) return node;

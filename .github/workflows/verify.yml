@@ -3,13 +3,26 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      native_run:
+        description: Optional verified native run to reuse for Java-only changes
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: read
+  actions: read
 concurrency:
-  group: verify-${{ github.ref }}-${{ github.sha }}
+  group: verify-${{ github.event_name }}-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 jobs:
+  bundles:
+    if: inputs.native_run != ''
+    uses: ./.github/workflows/verify-bundles.yml
+    with:
+      native_run: ${{ inputs.native_run }}
   native:
+    if: inputs.native_run == ''
     strategy:
       fail-fast: false
       matrix:
@@ -56,6 +69,7 @@ jobs:
           name: test-results-${{ matrix.platform }}
           path: tests/build/reports/tests
   musl:
+    if: inputs.native_run == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -73,6 +87,7 @@ jobs:
           path: native/dist/linux-x64-musl
           if-no-files-found: error
   sanitizer:
+    if: inputs.native_run == ''
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6

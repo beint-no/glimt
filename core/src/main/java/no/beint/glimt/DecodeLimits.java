@@ -1,8 +1,19 @@
 package no.beint.glimt;
 
-/** Per-conversion limits, checked before pixel allocation wherever the codec permits. */
+/**
+ * Per-conversion rejection boundaries, checked before pixel allocation wherever the codec permits.
+ * These limits do not cap total process memory, codec workspace or execution time.
+ *
+ * @param maxInputBytes maximum compressed input size
+ * @param maxPixels maximum width multiplied by height
+ * @param maxDecodedBytes maximum decoded pixel buffer size; intermediates may require additional memory
+ * @param maxMetadataBytes maximum colour profile or supported metadata chunk size
+ * @param maxDimension maximum width or height independently
+ * @param maxFrames maximum source frame or page count, including with {@link FramePolicy#FIRST_FRAME}
+ */
 public record DecodeLimits(long maxInputBytes, long maxPixels, long maxDecodedBytes,
                            long maxMetadataBytes, int maxDimension, int maxFrames) {
+    /** 64 MiB input, 40 million pixels, 320 MiB pixel buffer, 4 MiB metadata, 32768 dimension, 1000 frames. */
     public static final DecodeLimits DEFAULT = new DecodeLimits(64L << 20, 40_000_000, 320L << 20, 4L << 20, 32768, 1000);
     public DecodeLimits {
         if (maxInputBytes < 1 || maxInputBytes > Integer.MAX_VALUE - 8L || maxPixels < 1 || maxPixels > Integer.MAX_VALUE ||

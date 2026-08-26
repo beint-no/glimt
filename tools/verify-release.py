@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import tarfile
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = json.loads((ROOT / 'native/sources.json').read_text())
@@ -22,6 +23,7 @@ for name in sorted({name for sources in CODECS.values() for name in sources}):
         expected = spec['tree_sha256']
     else: actual = hashlib.sha256(archive.read_bytes()).hexdigest(); expected = spec['sha256']
     if actual != expected: raise RuntimeError('Corresponding source checksum mismatch: ' + name)
+revisions = set()
 for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
     for codec, sources in CODECS.items():
         folder = ROOT / 'native/dist' / platform / codec
@@ -33,9 +35,18 @@ for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
             data = (folder / filename).read_bytes()
             if len(data) < 1024 or hashlib.sha256(data).hexdigest() != expected: raise RuntimeError('Invalid binary: ' + str(folder / filename))
         info = json.loads((folder / 'build-info.json').read_text())
+        revisions.add(info.get('commit'))
         if info['platform'] != platform or info['sources'] != {name: LOCK[name] for name in sources}:
             raise RuntimeError('Native source provenance mismatch: ' + str(folder))
         for name in sources:
             if not any((folder / 'licenses').glob(name + '-*')): raise RuntimeError('Missing native notices: ' + name)
         print('Verified', platform, codec)
+if len(revisions) != 1 or None in revisions or 'source-distribution' in revisions:
+    raise RuntimeError('Release binaries must all come from the same verified source revision')
+revision = revisions.pop()
+# Squash merging changes the commit id but must not change native source/build
+# inputs after their platform tests. Also reject uncommitted native edits.
+subprocess.run(['git', 'diff', '--exit-code', revision, '--', 'native'], cwd=ROOT, check=True,
+               stdout=subprocess.DEVNULL)
+print('Verified native source revision', revision)
 print('Publication gate: all 21 native bundles and corresponding sources verified')

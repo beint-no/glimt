@@ -24,6 +24,8 @@ for name in sorted({name for sources in CODECS.values() for name in sources}):
     else: actual = hashlib.sha256(archive.read_bytes()).hexdigest(); expected = spec['sha256']
     if actual != expected: raise RuntimeError('Corresponding source checksum mismatch: ' + name)
 revisions = set()
+runs = set()
+verified_archives = set()
 for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
     for codec, sources in CODECS.items():
         folder = ROOT / 'native/dist' / platform / codec
@@ -36,12 +38,22 @@ for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
             if len(data) < 1024 or hashlib.sha256(data).hexdigest() != expected: raise RuntimeError('Invalid binary: ' + str(folder / filename))
         info = json.loads((folder / 'build-info.json').read_text())
         revisions.add(info.get('commit'))
+        provenance = info.get('ci_provenance', {})
+        if provenance.get('repository') != 'beint-no/glimt' or not isinstance(provenance.get('run_id'), int):
+            raise RuntimeError('Collect release bundles from verified CI using tools/collect-native-release.py')
+        runs.add(provenance['run_id'])
+        archive = ROOT / 'native/.work/release-artifacts' / str(provenance['run_id']) / (platform + '.zip')
+        expected_digest = provenance.get('artifact_digest')
+        if (archive, expected_digest) not in verified_archives:
+            if 'sha256:' + hashlib.sha256(archive.read_bytes()).hexdigest() != expected_digest:
+                raise RuntimeError('Collected CI artifact checksum mismatch: ' + platform)
+            verified_archives.add((archive, expected_digest))
         if info['platform'] != platform or info['sources'] != {name: LOCK[name] for name in sources}:
             raise RuntimeError('Native source provenance mismatch: ' + str(folder))
         for name in sources:
             if not any((folder / 'licenses').glob(name + '-*')): raise RuntimeError('Missing native notices: ' + name)
         print('Verified', platform, codec)
-if len(revisions) != 1 or None in revisions or 'source-distribution' in revisions:
+if len(revisions) != 1 or len(runs) != 1 or None in revisions or 'source-distribution' in revisions:
     raise RuntimeError('Release binaries must all come from the same verified source revision')
 revision = revisions.pop()
 # Squash merging changes the commit id but must not change native source/build

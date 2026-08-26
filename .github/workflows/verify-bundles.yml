@@ -50,8 +50,9 @@ jobs:
           import json, os, pathlib, subprocess
           root = pathlib.Path('native/dist') / os.environ['PLATFORM']
           revisions = {json.loads(p.read_text())['commit'] for p in root.glob('*/build-info.json')}
-          assert len(revisions) == 1
-          subprocess.run(['git', 'diff', '--exit-code', revisions.pop(), '--', 'native'], check=True)
+          source = subprocess.check_output(['gh', 'run', 'view', os.environ['NATIVE_RUN'], '--json', 'headSha', '--jq', '.headSha'], text=True).strip()
+          assert revisions == {source} or (os.environ['PLATFORM'] == 'linux-x64-musl' and revisions == {'source-distribution'})
+          subprocess.run(['git', 'diff', '--exit-code', source, '--', 'native'], check=True)
           PY
       - name: Test current Java code against release binaries
         if: matrix.platform != 'linux-x64-musl'

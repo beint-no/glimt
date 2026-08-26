@@ -56,7 +56,11 @@ Photograph licenses and provenance are included with the corpus.
 
 1. Pass platform, minimal-runtime, clean-container and sanitizer checks for the
    intended revision.
-2. Download `native-<platform>` CI artifacts into `native/dist/<platform>`.
+2. Run `python3 tools/collect-native-release.py <successful-verify-run-id>`.
+   This downloads all three platform artifacts, verifies their GitHub ZIP
+   digests, checks a successful sanitizer job and records the source revision.
+   Docker builds exclude Git metadata; their revision comes from the verified
+   workflow checkout rather than an unavailable `.git` directory in the image.
 3. Retain pinned archives in `native/.work/archives` for verification and HEIC
    corresponding source JARs. Other source JARs include the pinned recipe.
 4. Run `python3 tools/verify-release.py`, `./gradlew build` and runtime smoke tests.
@@ -68,5 +72,11 @@ Photograph licenses and provenance are included with the corpus.
    repeat conversion tests. An accepted upload is not proof of publication.
 
 Publishing tasks require all 21 native bundles, hashes, source locks, source
-archives and notices. Local single-platform builds are allowed but cannot
+archives, CI provenance and notices. Keep the collected ZIPs under
+`native/.work/release-artifacts` until publication. Local single-platform builds are allowed but cannot
 publish an incomplete distribution to Central.
+
+For Java-only changes, dispatch `verify.yml` with `native_run` set to the tested
+native build run. This checks that native inputs are unchanged and reruns the
+current Java tests and minimal runtimes on all three platforms without rebuilding
+every codec. A native source/build change still requires the full workflow.

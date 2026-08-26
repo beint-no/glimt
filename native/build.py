@@ -64,9 +64,19 @@ def source(name):
     actual = tree_hash(archive) if 'tree_sha256' in spec else hashlib.sha256(archive.read_bytes()).hexdigest()
     if actual != expected:
         raise RuntimeError('Source checksum mismatch: ' + name)
+    patches = []
+    for patch in spec.get('patches', []):
+        path = ROOT / 'patches' / patch['file']
+        if hashlib.sha256(path.read_bytes()).hexdigest() != patch['sha256']:
+            raise RuntimeError('Source patch checksum mismatch: ' + patch['file'])
+        patches.append(path)
+    patched_stamp = expected
+    if patches:
+        patched_stamp += ':' + hashlib.sha256(b''.join(path.read_bytes() for path in patches)).hexdigest()
     target = WORK / 'src' / name
     stamp = target / '.glimt-source-sha256'
-    if not stamp.exists():
+    accepted_stamps = (patched_stamp,) if patches else (expected, spec['sha256'])
+    if not stamp.exists() or stamp.read_text() not in accepted_stamps:
         if target.exists(): shutil.rmtree(target)
         target.mkdir(parents=True)
         with tarfile.open(archive) as tar:
@@ -76,9 +86,8 @@ def source(name):
                     if len(parts) < 2: continue
                     entry.name = str(Path(*parts[1:]))
                 tar.extract(entry, target, filter='data')
-        stamp.write_text(expected)
-    elif stamp.read_text() not in (expected, spec['sha256']):
-        raise RuntimeError('Stale source tree: ' + name)
+        for path in patches: run(['patch', '-t', '-p1', '-i', path], cwd=target)
+        stamp.write_text(patched_stamp)
     return target
 
 def cmake(name, options=()):

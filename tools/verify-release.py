@@ -23,6 +23,10 @@ for name in sorted({name for sources in CODECS.values() for name in sources}):
         expected = spec['tree_sha256']
     else: actual = hashlib.sha256(archive.read_bytes()).hexdigest(); expected = spec['sha256']
     if actual != expected: raise RuntimeError('Corresponding source checksum mismatch: ' + name)
+    for patch in spec.get('patches', []):
+        path = ROOT / 'native/patches' / patch['file']
+        if hashlib.sha256(path.read_bytes()).hexdigest() != patch['sha256']:
+            raise RuntimeError('Corresponding source patch checksum mismatch: ' + patch['file'])
 revisions = set()
 runs = set()
 verified_archives = set()

@@ -1,0 +1,19 @@
+Glimt modification, 2026-08-26. SPDX-License-Identifier: LGPL-3.0-or-later
+Avoid undefined behavior for empty config vectors and overflowing read lengths.
+
+--- a/libheif/bitstream.cc
++++ b/libheif/bitstream.cc
+@@ -108,8 +108,11 @@
+ 
+ bool StreamReader_memory::read(void* data, size_t size)
+ {
+-  uint64_t end_pos = m_position + size;
+-  if (end_pos > m_length) {
++  // Glimt, 2026-08-26: avoid null memcpy arguments and range overflow.
++  if (size == 0) {
++    return true;
++  }
++  if (!data || !m_data || m_position > m_length || size > m_length - m_position) {
+     return false;
+   }
+ 

@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
         uint8_t *original = malloc((size_t)length), *input = malloc((size_t)length);
         if (!original || !input || fread(original, 1, (size_t)length, file) != (size_t)length) return 2;
         fclose(file);
+        fprintf(stderr, "Sanitizing %s (129 cases)\n", argv[arg]);
         for (unsigned iteration = 0; iteration < 129; iteration++) {
             memcpy(input, original, (size_t)length);
             size_t size = (size_t)length;

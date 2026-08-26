@@ -1,7 +1,7 @@
 # Native builds and releases
 
 Install JDK 26, Python 3.12+, C/C++ compilers, CMake, Ninja, pkg-config, Make,
-Meson 1.10.0, and NASM on x86-64. Linux needs patchelf and Perl. macOS uses the
+Meson 1.10.0, patch, and NASM on x86-64. Linux needs patchelf and Perl. macOS uses the
 Command Line Tools for install-name editing and ad hoc signing.
 
 ```sh
@@ -22,6 +22,10 @@ archive. Gitiles archives have changing timestamps, so those entries additionall
 pin a canonical SHA-256 of every path, kind, mode, link target and file content.
 Timestamp changes cannot hide source changes. Source archives and build trees
 live in ignored `native/.work`; outputs in `native/dist/<platform>/<codec>`.
+Any local upstream patches are also checksum-pinned in the source lock, applied
+to a fresh source tree when changed, and included in the corresponding native
+source JAR. libheif currently has a small patch avoiding null zero-length memory
+reads and overflowing read lengths discovered during sanitizer testing.
 
 The fixed C ABI is in `native/src/glimt.h`; `NativeCodec` owns FFM calls and
 scoped cleanup. JPMS services expose native resources without `ALL-MODULE-PATH`

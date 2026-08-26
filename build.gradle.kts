@@ -120,6 +120,10 @@ subprojects {
         if (codec != null) tasks.named<Jar>("sourcesJar") {
             from(rootProject.file("native/src")) { into("native/src") }
             from(rootProject.file("native/licenses")) { into("native/licenses") }
+            from(rootProject.file("native/patches")) {
+                for (source in nativeSources.getValue(codec)) include("$source/**")
+                into("native/patches")
+            }
             from(listOf(rootProject.file("native/build.py"), rootProject.file("native/sources.json"))) { into("native") }
             // LGPL corresponding source is shipped with HEIC. Other bundles
             // include the pinned build recipe, avoiding redistribution of

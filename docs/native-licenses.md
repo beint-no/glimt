@@ -5,6 +5,8 @@ keeps its own licenses. Native JARs include a `licenses` directory beside the
 binaries, source locks in `build-info.json`, and a SHA-256 manifest. Their
 `-sources.jar` contains bridge source and the pinned build recipe. HEIC source
 JARs also include complete upstream archives for LGPL corresponding source.
+They include the checksum-pinned libheif memory-reader patch and its build
+recipe; the patch retains libheif's LGPL-3.0-or-later license and marks its changes.
 Other recipes download their checksum-pinned upstream archives when rebuilt;
 unrelated upstream test photographs are not redistributed in those source JARs.
 

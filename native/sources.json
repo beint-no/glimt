@@ -27,7 +27,13 @@
   "heif": {
     "version": "1.23.2",
     "url": "https://github.com/strukturag/libheif/archive/refs/tags/v1.23.2.tar.gz",
-    "sha256": "1405ed070421459b569ff49deab109b7f1a30a447e72a9b20a4154f774634a44"
+    "sha256": "1405ed070421459b569ff49deab109b7f1a30a447e72a9b20a4154f774634a44",
+    "patches": [
+      {
+        "file": "heif/0001-memory-reader-empty-read.patch",
+        "sha256": "d196d1b688f7506f65f470502f40978dc6282f522efaa27c170a338232656fc7"
+      }
+    ]
   },
   "de265": {
     "version": "1.1.1",

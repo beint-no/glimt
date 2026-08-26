@@ -84,6 +84,8 @@ and native bundles on both classpath and module path. Shaded JARs must merge
 PDF, camera RAW, JPEG 2000, OpenEXR and floating-point HDR are unsupported in
 this release. HEIF using codecs other than HEVC needs a different decoder.
 CMYK/Lab PSD and narrow-range CICP PNG are rejected rather than mislabelled.
+AVIF uses strict validation. Minimized `mif3`/`mini` containers and grids sharing
+the same tile between colour and alpha are not supported.
 
 ## Fidelity and options
 

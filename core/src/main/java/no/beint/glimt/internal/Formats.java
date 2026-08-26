@@ -37,6 +37,7 @@ public final class Formats {
             }
             cursor += (int) size;
         }
+        if (isWbmp(data)) return ImageFormat.WBMP;
         // TGA v1 has no magic. Only consider a consistent raster header, after
         // all signature-bearing formats; the decoder validates the full file.
         if (data.length >= 18 && (data[1] == 0 || data[1] == 1)) {
@@ -48,22 +49,25 @@ public final class Formats {
                  (kind == 3 || kind == 11) && data[1] == 0 && (depth == 8 || depth == 16) ||
                  (kind == 1 || kind == 9) && data[1] == 1 && (depth == 8 || depth == 16))) return ImageFormat.TGA;
         }
-        // Type-0 WBMP: exact packed bitmap length avoids its weak zero prefix
-        // mistaking arbitrary input (or another container) for a bitmap.
+        return ImageFormat.UNKNOWN;
+    }
+    private static boolean isWbmp(byte[] data) {
+        // Exact packed length is stronger evidence than TGA v1's header
+        // heuristic, which can otherwise match arbitrary bitmap pixel bytes.
         if (data.length >= 4 && data[0] == 0 && data[1] == 0) {
             int pos = 2; long width = 0, height = 0;
             for (int dimension = 0; dimension < 2; dimension++) {
                 long value = 0; int count = 0, octet;
                 do {
-                    if (pos == data.length || ++count > 5) return ImageFormat.UNKNOWN;
+                    if (pos == data.length || ++count > 5) return false;
                     octet = data[pos++] & 255; value = (value << 7) | (octet & 127);
                 } while ((octet & 128) != 0);
                 if (dimension == 0) width = value; else height = value;
             }
             if (width > 0 && width <= 65536 && height > 0 && height <= 65536 &&
-                ((width + 7) / 8) * height == data.length - pos) return ImageFormat.WBMP;
+                ((width + 7) / 8) * height == data.length - pos) return true;
         }
-        return ImageFormat.UNKNOWN;
+        return false;
     }
     public static boolean text(byte[] data, int offset, String value) {
         byte[] bytes = value.getBytes(StandardCharsets.ISO_8859_1);

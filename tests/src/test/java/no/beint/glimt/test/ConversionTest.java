@@ -240,6 +240,15 @@ class ConversionTest {
                 (byte)255,0,0,(byte)255}, decoded.pixels().toArray(ValueLayout.JAVA_BYTE));
         }
     }
+    @Test void detectsWbmpBeforeWeakTgaHeader() {
+        byte[] source = new byte[133]; // WBMP, width 3, height 128, one packed byte per row.
+        source[2] = 3; source[3] = (byte)0x81;
+        // These bitmap samples also resemble a one-pixel grayscale TGA header.
+        source[12] = 1; source[14] = 1; source[16] = 8;
+        assertEquals(ImageFormat.WBMP, ImageFormat.detect(source));
+        var result = FAST.convert(source);
+        assertEquals(3, result.width()); assertEquals(128, result.height());
+    }
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void selectsDisplayedApngFrameRatherThanPoster(boolean poster) throws Exception {
         var out = new ByteArrayOutputStream(); out.writeBytes(new byte[]{(byte)137,80,78,71,13,10,26,10});

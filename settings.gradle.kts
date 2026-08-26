@@ -4,8 +4,8 @@ dependencyResolutionManagement {
     repositories { mavenCentral() }
 }
 rootProject.name = "glimt"
-include("core", "avif", "jpeg", "png", "webp", "heic", "jdk-imageio", "all", "tests")
-for (codec in listOf("avif", "jpeg", "png", "webp", "heic")) {
+include("core", "avif", "jpeg", "png", "webp", "heic", "jxl", "jdk-imageio", "all", "tests")
+for (codec in listOf("avif", "jpeg", "png", "webp", "heic", "jxl")) {
     for (platform in listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")) {
         include("$codec-$platform")
         project(":$codec-$platform").projectDir = file("natives/$codec-$platform")

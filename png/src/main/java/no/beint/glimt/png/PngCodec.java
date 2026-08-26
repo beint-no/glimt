@@ -9,6 +9,6 @@ public final class PngCodec implements ImageDecoder {
     public PngCodec() {}
     @Override public Set<ImageFormat> formats() { return Set.of(ImageFormat.PNG); }
     @Override public PixelImage decode(MemorySegment input, ImageFormat format, DecodeLimits limits, FramePolicy frames, Arena arena) {
-        return NativeCodec.of("png").decode(input, limits, frames, arena);
+        return PngFrames.decode(input, limits, frames, arena);
     }
 }

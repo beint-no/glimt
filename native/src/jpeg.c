@@ -1,6 +1,6 @@
 #include "glimt.h"
 #include <turbojpeg.h>
-#include <lcms2.h>
+#include "color.h"
 API const char *glimt_version(void) { return "libjpeg-turbo 3.2.0"; }
 static int adobe_marker(const uint8_t *data, size_t size) {
     size_t pos = 2;
@@ -68,7 +68,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
             }
         }
         for (uint64_t i = 0; i < count; i++) out->pixels[i * 4 + 3] = 255;
-    } else if (profile_size) failed = glimt_icc(out, profile, profile_size, limits);
+    } else if (profile_size) failed = glimt_color(out, profile, profile_size, limits);
 done:
     if (profile) tj3Free(profile);
     tj3Destroy(decoder); return failed;

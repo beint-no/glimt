@@ -53,18 +53,30 @@
     "version": "3.14.1",
     "url": "https://aomedia.googlesource.com/aom/+archive/refs/tags/v3.14.1.tar.gz",
     "sha256": "14ff547142d7761c107329dd351bcbd8a48d552cefa3aae9c5f64b863fd5bef0",
-    "strip": false
+    "strip": false,
+    "tree_sha256": "3a42b9ae6b19bd3fe6b680d6fc0c1f3e8637371ad5390ba53f738f1c2c42fa43"
   },
   "yuv": {
     "version": "644251f252a84bf8ce91ff0aca86a9b16b069ab8",
     "url": "https://chromium.googlesource.com/libyuv/libyuv/+archive/644251f252a84bf8ce91ff0aca86a9b16b069ab8.tar.gz",
     "sha256": "464ca71692b4bf761dface560e34472364742a5f582e83d5579ceebe2b0633cb",
-    "strip": false
+    "strip": false,
+    "tree_sha256": "67ab62752d0f6af2306602833ffa9f7c096ce79b724ab2b792caf0c12ec0ef1e"
   },
   "dav1d": {
     "version": "1.5.3",
     "url": "https://github.com/videolan/dav1d/archive/refs/tags/1.5.3.tar.gz",
     "sha256": "cbe212b02faf8c6eed5b6d55ef8a6e363aaab83f15112e960701a9c3df813686",
     "strip": true
+  },
+  "brotli": {
+    "version": "028fb5a23661f123017c060daa546b55cf4bde29",
+    "url": "https://github.com/google/brotli/archive/028fb5a23661f123017c060daa546b55cf4bde29.tar.gz",
+    "sha256": "0afe09a53c8bad9861c8dd1fc1284308d54f19d2979ba3541cfdcc9b05fe360f"
+  },
+  "highway": {
+    "version": "457c891775a7397bdb0376bb1031e6e027af1c48",
+    "url": "https://github.com/google/highway/archive/457c891775a7397bdb0376bb1031e6e027af1c48.tar.gz",
+    "sha256": "5124b0501c98d9930dbb065bfa1a5bbbd59ce0f12facb7e1e33aaef01a5f1f1a"
   }
 }

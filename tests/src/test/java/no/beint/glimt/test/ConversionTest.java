@@ -29,8 +29,8 @@ class ConversionTest {
     @ParameterizedTest
     @ValueSource(strings = {"rgba.png", "rgb.png", "palette.png", "gray.png", "gray-alpha.png", "rgba16.png", "interlaced.png",
         "baseline.jpg", "progressive.jpg", "gray.jpg", "cmyk.jpg", "lossless.webp", "lossy.webp", "rgba.gif", "rgb.bmp",
-        "rgba.tiff", "zip.tiff", "rgba.heic", "rgb10.heic"})
-    void convertsCorpusAndIndependentlyDecodesOutput(String name) throws Exception {
+        "rgba.tiff", "zip.tiff", "rgba.heic", "rgb10.heic", "rgba.jxl"})
+    void convertsCorpusAndDecodesOutputWithDav1d(String name) throws Exception {
         byte[] source = fixture(name);
         ConvertedImage converted = FAST.convert(source);
         assertEquals(ImageFormat.AVIF, ImageFormat.detect(converted.bytes()));

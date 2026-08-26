@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 LOCK = json.loads((ROOT / 'sources.json').read_text())
 parser = argparse.ArgumentParser()
 parser.add_argument('--platform', default='macos-arm64' if platform.system() == 'Darwin' else 'linux-x64-glibc')
-parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic')
+parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl')
 parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 2))
 args = parser.parse_args()
 WORK = ROOT / '.work'
@@ -36,6 +36,18 @@ def run(command, cwd=None):
     print('+', ' '.join(map(str, command)), flush=True)
     subprocess.run(list(map(str, command)), cwd=cwd, env=ENV, check=True)
 
+def tree_hash(archive):
+    # Gitiles generates tar headers with the request time. Authenticate every
+    # member's path, kind, mode, target and contents, excluding only timestamps.
+    entries = []
+    with tarfile.open(archive) as tar:
+        for item in sorted(tar.getmembers(), key=lambda entry: entry.name):
+            if not (item.isfile() or item.isdir() or item.issym() or item.islnk()):
+                raise RuntimeError('Unexpected source archive member')
+            digest = hashlib.sha256(tar.extractfile(item).read()).hexdigest() if item.isfile() else None
+            entries.append([item.name, item.type.decode('ascii'), item.mode, item.linkname, digest])
+    return hashlib.sha256(json.dumps(entries, separators=(',', ':')).encode()).hexdigest()
+
 def source(name):
     spec = LOCK[name]
     archive = WORK / 'archives' / (name + '.tar.gz')
@@ -43,7 +55,9 @@ def source(name):
     if not archive.exists():
         with urllib.request.urlopen(spec['url'], timeout=120) as stream:
             archive.write_bytes(stream.read())
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != spec['sha256']:
+    expected = spec.get('tree_sha256', spec['sha256'])
+    actual = tree_hash(archive) if 'tree_sha256' in spec else hashlib.sha256(archive.read_bytes()).hexdigest()
+    if actual != expected:
         raise RuntimeError('Source checksum mismatch: ' + name)
     target = WORK / 'src' / name
     stamp = target / '.glimt-source-sha256'
@@ -57,8 +71,8 @@ def source(name):
                     if len(parts) < 2: continue
                     entry.name = str(Path(*parts[1:]))
                 tar.extract(entry, target, filter='data')
-        stamp.write_text(spec['sha256'])
-    elif stamp.read_text() != spec['sha256']:
+        stamp.write_text(expected)
+    elif stamp.read_text() not in (expected, spec['sha256']):
         raise RuntimeError('Stale source tree: ' + name)
     return target
 
@@ -126,7 +140,12 @@ def bridge(codec, libraries, shared=()):
                     run(['install_name_tool', '-change', path, '@loader_path/' + dependency, item])
             run(['codesign', '--force', '--sign', '-', item])
     else:
-        for item in target.glob('*.so*'): run(['patchelf', '--set-rpath', '$ORIGIN', item])
+        for item in target.glob('*.so*'):
+            run(['patchelf', '--set-rpath', '$ORIGIN', item])
+            for dependency in subprocess.check_output(['patchelf', '--print-needed', item], text=True).splitlines():
+                bundled = PREFIX / 'lib' / dependency
+                if bundled.exists() and (target / bundled.resolve().name).exists():
+                    run(['patchelf', '--replace-needed', dependency, bundled.resolve().name, item])
     manifest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(target.iterdir())
                 if p.is_file() and (p.name.endswith('.dylib') or '.so' in p.name)}
     (target / 'manifest.properties').write_text(''.join(name + '=' + digest + '\n' for name, digest in manifest.items()))
@@ -157,8 +176,9 @@ for codec in args.codecs.split(','):
         cmake('zlib', ['-DZLIB_BUILD_TESTING=OFF', '-DZLIB_BUILD_SHARED=OFF', '-DZLIB_BUILD_STATIC=ON'])
         cmake('png', ['-DPNG_SHARED=OFF', '-DPNG_STATIC=ON', '-DPNG_TESTS=OFF', '-DPNG_TOOLS=OFF',
                       '-DZLIB_LIBRARY=' + str(PREFIX / 'lib/libz.a'), '-DZLIB_INCLUDE_DIR=' + str(PREFIX / 'include')])
-        bridge(codec, [PREFIX / 'lib/libpng16.a', PREFIX / 'lib/libz.a'])
-        notices(codec, ['png', 'zlib'])
+        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        bridge(codec, [PREFIX / 'lib/libpng16.a', PREFIX / 'lib/libz.a', PREFIX / 'lib/liblcms2.a'])
+        notices(codec, ['png', 'zlib', 'lcms'])
     elif codec == 'webp':
         cmake('webp', ['-DWEBP_BUILD_ANIM_UTILS=OFF', '-DWEBP_BUILD_CWEBP=OFF', '-DWEBP_BUILD_DWEBP=OFF',
                        '-DWEBP_BUILD_GIF2WEBP=OFF', '-DWEBP_BUILD_IMG2WEBP=OFF', '-DWEBP_BUILD_VWEBP=OFF',
@@ -175,4 +195,24 @@ for codec in args.codecs.split(','):
         suffix = 'dylib' if platform.system() == 'Darwin' else 'so'
         bridge(codec, [PREFIX / 'lib' / ('libheif.' + suffix)], ['libheif', 'libde265'])
         notices(codec, ['heif', 'de265'])
+    elif codec == 'jxl':
+        jxl = source('jxl')
+        for name in ('highway', 'brotli'):
+            dependency = source(name)
+            link = jxl / 'third_party' / name
+            if not link.is_symlink():
+                if link.exists(): shutil.rmtree(link)
+                link.symlink_to(dependency, target_is_directory=True)
+        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        cmake('jxl', ['-DJPEGXL_ENABLE_' + name + '=OFF' for name in
+                     ('TOOLS', 'DEVTOOLS', 'DOXYGEN', 'MANPAGES', 'BENCHMARK', 'EXAMPLES', 'JNI', 'SJPEG',
+                      'OPENEXR', 'SKCMS', 'VIEWERS', 'TCMALLOC', 'PLUGINS', 'TRANSCODE_JPEG', 'FUZZERS')] +
+                    ['-DJPEGXL_FORCE_SYSTEM_LCMS2=ON', '-DLCMS2_LIBRARY=' + str(PREFIX / 'lib/liblcms2.a')])
+        archives = []
+        for name in ('libjxl.a', 'libjxl_cms.a', 'libbrotlidec.a', 'libbrotlicommon.a', 'libhwy.a'):
+            matches = sorted((BUILD / 'jxl').rglob(name))
+            if not matches: raise RuntimeError('Missing JXL dependency ' + name)
+            archives.append(matches[0])
+        bridge(codec, [*archives, PREFIX / 'lib/liblcms2.a'])
+        notices(codec, ['jxl', 'highway', 'brotli', 'lcms'])
     else: raise ValueError('Unknown codec: ' + codec)

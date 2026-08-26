@@ -1,6 +1,7 @@
 #include "glimt.h"
 #include <png.h>
 #include <setjmp.h>
+#include "color.h"
 typedef struct { const uint8_t *data; size_t size, position; glimt_image *out; } png_input;
 static void read_png(png_structp png, png_bytep target, png_size_t length) {
     png_input *input = (png_input *)png_get_io_ptr(png);
@@ -36,10 +37,6 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     int depth = png_get_bit_depth(png, info), color = png_get_color_type(png, info);
     out->depth = depth == 16 ? 16 : 8;
     if (glimt_allocate(out, limits)) { png_destroy_read_struct(&png, &info, NULL); return 1; }
-    png_charp name; int compression; png_bytep profile; png_uint_32 profile_size;
-    if (png_get_iCCP(png, info, &name, &compression, &profile, &profile_size) && glimt_icc(out, profile, profile_size, limits)) {
-        png_destroy_read_struct(&png, &info, NULL); return 1;
-    }
     if (color == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png);
     if (color == PNG_COLOR_TYPE_GRAY && depth < 8) png_set_expand_gray_1_2_4_to_8(png);
     const int transparency = png_get_valid(png, info, PNG_INFO_tRNS) != 0;
@@ -53,5 +50,34 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     memset(out->pixels, 0, (size_t)out->size);
     for (int pass = 0; pass < passes; pass++) for (uint32_t y = 0; y < out->height; y++)
         png_read_row(png, out->pixels + y * out->stride, NULL);
-    png_read_end(png, NULL); png_destroy_read_struct(&png, &info, NULL); return 0;
+    png_read_end(png, NULL);
+    png_charp name; int compression; png_bytep profile; png_uint_32 profile_size;
+    int failed = 0;
+    if (png_get_iCCP(png, info, &name, &compression, &profile, &profile_size)) {
+        failed = glimt_color(out, profile, profile_size, limits);
+    } else if (!png_get_valid(png, info, PNG_INFO_sRGB)) {
+        double gamma = 0.45455;
+        const int has_gamma = png_get_gAMA(png, info, &gamma) != 0;
+        cmsCIExyY white = {0.3127, 0.3290, 1.0};
+        cmsCIExyYTRIPLE primaries = {{0.64, 0.33, 1.0}, {0.30, 0.60, 1.0}, {0.15, 0.06, 1.0}};
+        const int has_chrm = png_get_cHRM(png, info, &white.x, &white.y,
+            &primaries.Red.x, &primaries.Red.y, &primaries.Green.x, &primaries.Green.y,
+            &primaries.Blue.x, &primaries.Blue.y) != 0;
+        if (has_gamma || has_chrm) {
+            cmsToneCurve *curve = gamma > 0 && gamma <= 10 ? cmsBuildGamma(NULL, 1.0 / gamma) : NULL;
+            cmsToneCurve *curves[] = {curve, curve, curve};
+            cmsHPROFILE generated = curve ? cmsCreateRGBProfile(&white, &primaries, curves) : NULL;
+            cmsUInt32Number length = 0;
+            if (!generated || !cmsSaveProfileToMem(generated, NULL, &length) || length > limits->max_metadata_bytes)
+                failed = glimt_fail(out, "Invalid PNG gamma/chromaticities");
+            else {
+                out->icc = malloc(length); out->icc_size = length;
+                if (!out->icc || !cmsSaveProfileToMem(generated, out->icc, &length)) failed = glimt_fail(out, "Cannot preserve PNG colour space");
+                else { out->primaries = 2; out->transfer = 2; }
+            }
+            if (generated) cmsCloseProfile(generated);
+            if (curve) cmsFreeToneCurve(curve);
+        }
+    }
+    png_destroy_read_struct(&png, &info, NULL); return failed;
 }

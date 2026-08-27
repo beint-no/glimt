@@ -17,6 +17,8 @@
   every EXIF orientation.
 * Retry transient, rate-limit, and server failures while fetching pinned native
   sources, using an atomic archive replacement for reliable release builds.
+* Avoid duplicate full native builds for feature-branch push and pull-request
+  events, and cancel stale verification when a branch advances.
 
 ## 0.2.0
 

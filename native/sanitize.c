@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
     release_fn release = (release_fn)dlsym(library, "glimt_release");
     if (!release) return 2;
     if (!decode) return sanitize_resize(library, release);
-    glimt_limits limits = {1000000, 32u << 20, 1u << 20, 4096, 100, 1, 1};
+    glimt_limits limits = {1000000, 32u << 20, 1u << 20, 4096, 100, 1, 1, 0, 0};
     unsigned total = 0, valid = 0;
     for (int arg = 2; arg < argc; arg++) {
         FILE *file = fopen(argv[arg], "rb");

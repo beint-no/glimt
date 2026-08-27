@@ -23,6 +23,7 @@ public class ResizeBenchmark {
     public static class ImageState {
         private Arena sourceArena;
         PixelImage pixels;
+        PixelImage alphaPixels;
         BufferedImage awt;
 
         @Setup(Level.Trial)
@@ -41,10 +42,24 @@ public class ResizeBenchmark {
                 awt.setRGB(x, y, 0xff000000 | red << 16 | green << 8 | blue);
             }
             pixels = new PixelImage(width, height, 8, 1, 1, 1, 13, false, (long) width * 4, data, MemorySegment.NULL);
+            MemorySegment alpha = sourceArena.allocate((long) width * height * 4, 4);
+            MemorySegment.copy(data, 0, alpha, 0, data.byteSize());
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+                alpha.set(ValueLayout.JAVA_BYTE, ((long) y * width + x) * 4 + 3, (byte) ((x + y) & 255));
+            alphaPixels = new PixelImage(width, height, 8, 1, 1, 1, 13, true, (long) width * 4, alpha, MemorySegment.NULL);
         }
 
         @TearDown(Level.Trial)
         public void tearDown() { sourceArena.close(); }
+    }
+
+    @Benchmark
+    public void nativeAlphaMitchell(ImageState image, Blackhole blackhole) {
+        try (Arena arena = Arena.ofConfined()) {
+            PixelImage output = NativeResizer.of("resize").resize(image.alphaPixels, 1600, 1200, ResizeFilter.MITCHELL,
+                DecodeLimits.DEFAULT, arena);
+            blackhole.consume(output.pixels().get(ValueLayout.JAVA_BYTE, output.pixels().byteSize() - 1));
+        }
     }
 
     @State(Scope.Thread)

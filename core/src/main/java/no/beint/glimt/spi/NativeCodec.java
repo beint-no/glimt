@@ -2,6 +2,7 @@ package no.beint.glimt.spi;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import no.beint.glimt.*;
 import no.beint.glimt.internal.NativeLibrary;
@@ -19,7 +20,7 @@ public final class NativeCodec {
         MethodHandle abi = linker.downcallHandle(lookup.findOrThrow("glimt_abi"), FunctionDescriptor.of(JAVA_INT));
         try {
             abiVersion = (int) abi.invokeExact();
-            if (abiVersion != 1 && abiVersion != 2) throw new ImageException("Incompatible Glimt native ABI for " + name);
+            if (abiVersion < 1 || abiVersion > 3) throw new ImageException("Incompatible Glimt native ABI for " + name);
         }
         catch (Throwable error) { throw failure(error); }
         decode = linker.downcallHandle(lookup.findOrThrow("glimt_decode"), FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS));
@@ -28,11 +29,18 @@ public final class NativeCodec {
     }
     public static NativeCodec of(String name) { return CODECS.computeIfAbsent(name, NativeCodec::new); }
     public PixelImage decode(MemorySegment input, DecodeLimits limits, FramePolicy frames, Arena arena) {
-        MemorySegment settings = arena.allocate(40, 8), result = arena.allocate(328, 8);
+        return decode(input, limits, frames, DecodeTarget.NONE, arena);
+    }
+    public PixelImage decode(MemorySegment input, DecodeLimits limits, FramePolicy frames, DecodeTarget target, Arena arena) {
+        Objects.requireNonNull(target, "target");
+        MemorySegment settings = arena.allocate(abiVersion >= 3 ? 48 : 40, 8), result = arena.allocate(328, 8);
         settings.set(JAVA_LONG, 0, limits.maxPixels()); settings.set(JAVA_LONG, 8, limits.maxDecodedBytes());
         settings.set(JAVA_LONG, 16, limits.maxMetadataBytes()); settings.set(JAVA_INT, 24, limits.maxDimension());
         settings.set(JAVA_INT, 28, limits.maxFrames()); settings.set(JAVA_INT, 32, 1);
         settings.set(JAVA_INT, 36, frames == FramePolicy.FIRST_FRAME ? 1 : 0);
+        if (abiVersion >= 3) {
+            settings.set(JAVA_INT, 40, target.width()); settings.set(JAVA_INT, 44, target.height());
+        }
         try {
             int status = (int) decode.invokeExact(input, input.byteSize(), settings, result);
             if (status != 0) throw new ImageException(result.asSlice(72, 256).getString(0));

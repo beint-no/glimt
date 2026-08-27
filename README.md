@@ -8,7 +8,7 @@ in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.2.0")
+    implementation("no.beint.glimt:all:0.3.0")
 }
 ```
 
@@ -49,7 +49,7 @@ unsupported features and configured limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.2.0"
+val glimt = "0.3.0"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -127,6 +127,12 @@ quality default; triangle and box trade some reconstruction quality for speed.
 Straight alpha is weighted while filtering, fully transparent colour is
 canonicalized, and known-opaque sources take a faster path. Add `resize`
 explicitly to a selective bundle; configuration fails at startup if it is missing.
+
+For JPEG uploads, Glimt asks libjpeg-turbo for the smallest native IDCT scale
+that still covers the exact output dimensions. The normal resize filter then
+produces the requested size. Rotated uploads are resized on their source axes
+before the smaller buffer is oriented. Both optimizations are internal: output
+bounds, orientation, colour handling, and the public API remain unchanged.
 
 Animations, multipage TIFFs and multiple HEIC images are rejected by default.
 Opt in to dropping later frames with `FramePolicy.FIRST_FRAME`. APNG selects

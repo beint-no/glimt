@@ -97,9 +97,11 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
     if (status != AVIF_RESULT_OK) failed = glimt_fail(out, avifResultToString(status));
     else if (encoded.size > options->max_output_bytes) failed = glimt_fail(out, "Encoded AVIF exceeds configured output limit");
     else {
-        out->pixels = (uint8_t *)malloc(encoded.size);
-        if (!out->pixels) failed = glimt_fail(out, "Cannot allocate encoded AVIF");
-        else { memcpy(out->pixels, encoded.data, encoded.size); out->size = encoded.size; out->width = in->width; out->height = in->height; out->depth = depth; }
+        // Bundled libavif's avifAlloc/avifFree are malloc/free. Transfer the
+        // final buffer to the ABI owner and avoid one allocation and copy.
+        out->pixels = encoded.data; out->size = encoded.size;
+        out->width = in->width; out->height = in->height; out->depth = depth;
+        encoded.data = NULL; encoded.size = 0;
     }
     avifRWDataFree(&encoded); avifEncoderDestroy(encoder); avifImageDestroy(image);
     return failed;

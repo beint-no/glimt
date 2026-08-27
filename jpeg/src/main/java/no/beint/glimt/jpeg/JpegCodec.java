@@ -11,4 +11,8 @@ public final class JpegCodec implements ImageDecoder {
     @Override public PixelImage decode(MemorySegment input, ImageFormat format, DecodeLimits limits, FramePolicy frames, Arena arena) {
         return NativeCodec.of("jpeg").decode(input, limits, frames, arena);
     }
+    @Override public PixelImage decode(MemorySegment input, ImageFormat format, DecodeLimits limits, FramePolicy frames,
+                                       DecodeTarget target, Arena arena) {
+        return NativeCodec.of("jpeg").decode(input, limits, frames, target, arena);
+    }
 }

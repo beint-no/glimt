@@ -5,9 +5,9 @@ import java.nio.ByteOrder;
 import no.beint.glimt.*;
 
 /** Bounded metadata inspection; never follows external references. */
-public record Metadata(int orientation, int frames) {
+public record Metadata(int orientation, int frames, int width, int height) {
     public static Metadata read(byte[] input, ImageFormat format, DecodeLimits limits) {
-        int orientation = 1, frames = 1;
+        int orientation = 1, frames = 1, width = 0, height = 0;
         if (format == ImageFormat.JPEG) {
             int pos = 2;
             while (pos < input.length && (input[pos] & 255) == 255) {
@@ -20,6 +20,15 @@ public record Metadata(int orientation, int frames) {
                 int length = (input[pos] & 255) * 256 + (input[pos + 1] & 255);
                 if (length < 2 || length > input.length - pos) throw new ImageException("Invalid JPEG marker size");
                 if (marker == 0xe1 && Formats.text(input, pos + 2, "Exif\0\0")) orientation = exif(input, pos + 8, length - 8);
+                if (isStartOfFrame(marker)) {
+                    if (length < 8) throw new ImageException("Invalid JPEG frame header");
+                    int frameHeight = (input[pos + 3] & 255) * 256 + (input[pos + 4] & 255);
+                    int frameWidth = (input[pos + 5] & 255) * 256 + (input[pos + 6] & 255);
+                    if (frameWidth < 1 || frameHeight < 1) throw new ImageException("Invalid JPEG dimensions");
+                    if (width != 0 && (width != frameWidth || height != frameHeight))
+                        throw new ImageException("Conflicting JPEG frame dimensions");
+                    width = frameWidth; height = frameHeight;
+                }
                 pos += length;
             }
         } else if (format == ImageFormat.PNG) {
@@ -54,7 +63,10 @@ public record Metadata(int orientation, int frames) {
                 pos = (int) next;
             }
         }
-        return new Metadata(orientation, frames);
+        return new Metadata(orientation, frames, width, height);
+    }
+    private static boolean isStartOfFrame(int marker) {
+        return marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc;
     }
     private static int exif(byte[] bytes, int start, int size) {
         if (size < 8 || start < 0 || size > bytes.length - start) throw new ImageException("Truncated EXIF header");

@@ -32,7 +32,7 @@ are included. No x265 encoder, Ghostscript or external delegate is shipped.
 libheif and libde265 are separate shared libraries beside the HEIC bridge;
 they are not statically merged into it. To use modified builds:
 
-1. Unpack the matching `heic-<platform>-0.2.0-sources.jar`.
+1. Unpack the matching `heic-<platform>-0.3.0-sources.jar`.
 2. Run `python3 native/build.py --platform <platform> --codecs heic`, modifying
    the included pinned upstream sources as desired before compilation.
 3. Keep the bridge and its dependencies together with the loader-relative names
@@ -40,7 +40,7 @@ they are not statically merged into it. To use modified builds:
 4. Use `-Dglimt.native.heic=/absolute/path/libglimt_heic.so` (or `.dylib`).
 
 The override loads the selected library instead of enforcing the bundled
-checksum. Preserve ABI version 2, or rebuild the Java adapter too. A replacement
+checksum. Preserve ABI version 3, or rebuild the Java adapter too. A replacement
 native JAR with an updated manifest is another option.
 
 Redistributors of HEIC-enabled software must retain notices/licenses, provide

@@ -30,6 +30,7 @@ for name in sorted({name for sources in CODECS.values() for name in sources}):
             raise RuntimeError('Corresponding source patch checksum mismatch: ' + patch['file'])
 revisions = set()
 runs = set()
+workflow_revisions = set()
 verified_archives = set()
 for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
     for codec, sources in CODECS.items():
@@ -47,6 +48,7 @@ for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
         if provenance.get('repository') != 'beint-no/glimt' or not isinstance(provenance.get('run_id'), int):
             raise RuntimeError('Collect release bundles from verified CI using tools/collect-native-release.py')
         runs.add(provenance['run_id'])
+        workflow_revisions.add(provenance.get('workflow_commit'))
         archive = ROOT / 'native/.work/release-artifacts' / str(provenance['run_id']) / (platform + '.zip')
         expected_digest = provenance.get('artifact_digest')
         if (archive, expected_digest) not in verified_archives:
@@ -58,7 +60,8 @@ for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
         for name in sources:
             if not any((folder / 'licenses').glob(name + '-*')): raise RuntimeError('Missing native notices: ' + name)
         print('Verified', platform, codec)
-if len(revisions) != 1 or len(runs) != 1 or None in revisions or 'source-distribution' in revisions:
+if (len(revisions) != 1 or len(runs) != 1 or len(workflow_revisions) != 1
+        or None in revisions or None in workflow_revisions or 'source-distribution' in revisions):
     raise RuntimeError('Release binaries must all come from the same verified source revision')
 revision = revisions.pop()
 # Squash merging changes the commit id but must not change native source/build

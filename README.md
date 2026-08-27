@@ -1,6 +1,6 @@
 # Glimt
 
-Image-to-AVIF conversion using JDK 26 FFM and bundled native codecs. No JNI,
+Image-to-AVIF and image-to-JPEG conversion using JDK 26 FFM and bundled native codecs. No JNI,
 third-party Java runtime dependencies, installed image utilities, subprocesses
 in the conversion path, or runtime downloads.
 
@@ -8,7 +8,7 @@ in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.3.0")
+    implementation("no.beint.glimt:all:0.4.0")
 }
 ```
 
@@ -33,6 +33,24 @@ var mobileImages = ImageConverter.builder()
 ConvertedImage result = mobileImages.convert(uploadBytes);
 ```
 
+For ordinary JPEG output, including direct embedding in PDFs, use the JPEGli
+encoder. It emits standard JPEG files that existing browsers, PDF libraries and
+JDK ImageIO can read.
+
+```java
+var documents = JpegConverter.builder()
+    .longestEdge(2400)
+    .quality(80)
+    .build();
+
+ConvertedImage jpeg = documents.convert(uploadBytes);
+```
+
+The JPEG defaults are quality 80, 4:2:0, progressive scans, adaptive
+quantization and a white transparency background. Configure 4:4:4 with
+`chroma(Chroma.YUV444)` for screenshots or sharp coloured text. Convert the
+original upload once; repeated lossy JPEG transcoding compounds damage.
+
 Grant native access explicitly at application startup:
 
 ```text
@@ -49,13 +67,26 @@ unsupported features and configured limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.3.0"
+val glimt = "0.4.0"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
     runtimeOnly("no.beint.glimt:png:$glimt")
     runtimeOnly("no.beint.glimt:webp:$glimt")
     runtimeOnly("no.beint.glimt:heic:$glimt")
+    runtimeOnly("no.beint.glimt:resize:$glimt")
+}
+```
+
+For JPEG output instead of AVIF, replace the `avif` encoder with `jpegli` while
+keeping only the input decoders and optional resize module you need:
+
+```kotlin
+val glimt = "0.4.0"
+dependencies {
+    implementation("no.beint.glimt:jpegli:$glimt")
+    runtimeOnly("no.beint.glimt:jpeg:$glimt")
+    runtimeOnly("no.beint.glimt:png:$glimt")
     runtimeOnly("no.beint.glimt:resize:$glimt")
 }
 ```
@@ -67,7 +98,7 @@ exclude the other platform artifacts:
 
 ```kotlin
 configurations.configureEach {
-    for (codec in listOf("avif", "jpeg", "png", "webp", "heic", "resize")) {
+    for (codec in listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "resize")) {
         exclude(group = "no.beint.glimt", module = "$codec-macos-arm64")
         exclude(group = "no.beint.glimt", module = "$codec-linux-x64-glibc")
     }
@@ -85,6 +116,7 @@ and native bundles on both classpath and module path. Shaded JARs must merge
 | --- | --- | --- |
 | `avif` | AVIF | libavif, libaom encoder, dav1d decoder, libyuv; alpha, 8/10/12-bit, grids, crop and orientation |
 | `jpeg` | JPEG | libjpeg-turbo; baseline/progressive, gray, CMYK/YCCK and supported high-precision modes |
+| `jpegli` | JPEG output | JPEGli encoder; standard baseline-compatible JPEG, progressive/sequential, 4:2:0/4:4:4 and ICC |
 | `png` | PNG/APNG | libpng; palette, alpha, interlace, 8/16-bit, ICC, gamma/chromaticities and full-range CICP |
 | `webp` | WebP | libwebp; lossy/lossless, alpha and first-frame animation composition |
 | `heic` | HEVC in HEIC/HEIF | libheif + libde265; alpha, 8/10/12-bit, primary image and orientation |
@@ -113,7 +145,7 @@ HDR mastering metadata and non-square pixel aspect ratios are not carried to
 output. This is a still-image converter, not an archival container transcoder;
 keep originals when those features matter.
 
-Defaults: lossy quality 75, 4:4:4 chroma, lossless alpha, effort 4. AVIF supports
+AVIF defaults: lossy quality 75, 4:4:4 chroma, lossless alpha, effort 4. AVIF supports
 at most 12 bits per channel, so 16-bit input is quantized to 12-bit unless an
 explicit depth is chosen. The ImageIO module has an 8-bit boundary. `lossless`
 preserves decoded samples, not an original JPEG compression stream; incompatible
@@ -148,7 +180,7 @@ var images = ImageConverter.builder()
 
 ConvertedImage result = images.convert(inputBytes);
 result.writeTo(outputStream);
-// width(), height(), bitDepth(), sourceFormat(), sourceFrames(), mediaType()
+// width(), height(), bitDepth(), sourceFormat(), outputFormat(), sourceFrames(), mediaType()
 ```
 
 ## Bounded asynchronous work
@@ -197,7 +229,8 @@ choose the parent. There is no host-codec fallback or startup network access.
 ## Build, tests and licensing
 
 See [native builds](docs/native-build.md), [native licensing](docs/native-licenses.md),
-[benchmarks](docs/benchmarks.md) and [the design](docs/design.md). Tests cover generated patterns and licensed
+[benchmarks](docs/benchmarks.md), [the JPEGli evaluation](docs/jpegli-evaluation.md) and
+[the design](docs/design.md). Tests cover generated patterns and licensed
 photographs, orientation, profiles, alpha, bit depth, animations, malformed
 input, limits, concurrency, resizing and output decoding. CI also exercises minimal
 JPMS/classpath runtimes, clean Linux containers and native sanitizers.

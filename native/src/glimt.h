@@ -31,10 +31,17 @@ typedef struct {
     uint32_t width, height, filter, reserved;
     uint64_t max_output_bytes;
 } glimt_resize_options;
+#ifdef __cplusplus
+static_assert(sizeof(glimt_image) == 328, "Glimt image ABI");
+static_assert(sizeof(glimt_limits) == 48, "Glimt limits ABI");
+static_assert(sizeof(glimt_encode_options) == 40, "Glimt options ABI");
+static_assert(sizeof(glimt_resize_options) == 24, "Glimt resize options ABI");
+#else
 _Static_assert(sizeof(glimt_image) == 328, "Glimt image ABI");
 _Static_assert(sizeof(glimt_limits) == 48, "Glimt limits ABI");
 _Static_assert(sizeof(glimt_encode_options) == 40, "Glimt options ABI");
 _Static_assert(sizeof(glimt_resize_options) == 24, "Glimt resize options ABI");
+#endif
 
 API uint32_t glimt_abi(void) { return 3; }
 API void glimt_release(void *memory) { free(memory); }
@@ -69,7 +76,7 @@ static inline int glimt_allocate(glimt_image *out, const glimt_limits *limits) {
 static inline int glimt_icc(glimt_image *out, const void *data, size_t size, const glimt_limits *limits) {
     if (!size) return 0;
     if (size > limits->max_metadata_bytes) return glimt_fail(out, "Colour profile exceeds configured limit");
-    const uint8_t *profile = data;
+    const uint8_t *profile = (const uint8_t *)data;
     if (!data || size < 128 || memcmp(profile + 36, "acsp", 4) || memcmp(profile + 16, "RGB ", 4))
         return glimt_fail(out, "Unsupported or invalid RGB ICC profile");
     out->primaries = 2; out->transfer = 2;

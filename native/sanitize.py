@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser()
 parser.add_argument('--platform', default='macos-arm64' if platform.system() == 'Darwin' else 'linux-x64-glibc')
 parser.add_argument('--build-only', action='store_true', help='Preflight the harness toolchain before building codecs')
-parser.add_argument('--codecs', nargs='+', default=['avif', 'jpeg', 'png', 'webp', 'heic', 'jxl', 'extra', 'resize'])
+parser.add_argument('--codecs', nargs='+', default=['avif', 'jpeg', 'jpegli', 'png', 'webp', 'heic', 'jxl', 'extra', 'resize'])
 args = parser.parse_args()
 target = ROOT / '.work/sanitized' / args.platform
 executable = target / 'sanitizer'

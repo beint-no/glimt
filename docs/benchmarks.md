@@ -20,7 +20,25 @@ The suite contains:
 * `OrientationResizeBenchmark`: an A/B measurement of orientation before and after resizing.
 * `ResizeBenchmark`: opaque and alpha RGBA resize kernels plus an AWT bicubic reference.
 * `AvifEncodingBenchmark`: YUV420/YUV444 and one, two, or four encoder threads.
+* `JpegliConversionBenchmark`: a real 12-megapixel upload at qualities 70/80/90,
+  preserving source dimensions or bounding the longest edge to 2400 pixels.
 * `ConcurrentConversionBenchmark`: one and four simultaneous thumbnail conversions.
+
+## 0.4.0 JPEGli measurements
+
+On the same Apple M5 Max/JDK 26 setup, the 4032 x 3024 licensed camera photo
+takes 102.533 ms end to end at JPEG quality 80. Bounding it to a 2400-pixel
+long edge takes 64.361 ms, including target-aware JPEG decode, Mitchell resize,
+ICC handling and JPEGli encoding. Quality 70/80/90 results were:
+
+| Output | Q70 | Q80 | Q90 |
+| --- | ---: | ---: | ---: |
+| Source dimensions | 96.379 ms | 102.533 ms | 130.538 ms |
+| 2400-pixel long edge | 66.129 ms | 64.361 ms | 69.628 ms |
+
+Compression efficiency and the ReAI workload decision are documented separately
+in [the JPEGli evaluation](jpegli-evaluation.md). Latency and byte-size evidence
+serve different purposes; JMH does not substitute for a quality-matched codec study.
 
 Use JMH's GC profiler when reviewing Java allocation:
 

@@ -4,8 +4,67 @@
 #include <errno.h>
 
 typedef int (*decode_fn)(const uint8_t *, uint64_t, const glimt_limits *, glimt_image *);
+typedef int (*encode_fn)(const glimt_image *, const glimt_encode_options *, glimt_image *);
 typedef int (*resize_fn)(const glimt_image *, const glimt_resize_options *, glimt_image *);
 typedef void (*release_fn)(void *);
+
+static int sanitize_encode(void *library, release_fn release) {
+    encode_fn encode = (encode_fn)dlsym(library, "glimt_encode");
+    if (!encode) return 2;
+    unsigned total = 0;
+    for (uint32_t depth_index = 0; depth_index < 4; depth_index++) {
+        const uint32_t depth = (uint32_t[]){8, 10, 12, 16}[depth_index];
+        const uint32_t bytes_per_sample = depth > 8 ? 2 : 1;
+        const uint32_t maximum = (1u << depth) - 1;
+        for (uint32_t alpha = 0; alpha < 2; alpha++) {
+            const uint32_t width = 1 + depth_index * 16, height = 1 + alpha * 22;
+            const uint64_t stride = (uint64_t)width * 4 * bytes_per_sample + 8;
+            const uint64_t size = stride * height;
+            uint8_t *pixels = calloc(1, (size_t)size);
+            if (!pixels) return 2;
+            for (uint32_t y = 0; y < height; y++) for (uint32_t x = 0; x < width; x++) {
+                if (depth > 8) {
+                    uint16_t *sample = (uint16_t *)(pixels + y * stride) + x * 4;
+                    sample[0] = (uint16_t)((x * 127u + y * 31u) & maximum);
+                    sample[1] = (uint16_t)((x * 61u + y * 193u) & maximum);
+                    sample[2] = (uint16_t)((x * 251u + y * 17u) & maximum);
+                    sample[3] = (uint16_t)(alpha ? (x * 37u + y * 73u) & maximum : maximum);
+                } else {
+                    uint8_t *sample = pixels + y * stride + x * 4;
+                    sample[0] = (uint8_t)(x * 127u + y * 31u);
+                    sample[1] = (uint8_t)(x * 61u + y * 193u);
+                    sample[2] = (uint8_t)(x * 251u + y * 17u);
+                    sample[3] = alpha ? (uint8_t)(x * 37u + y * 73u) : UINT8_MAX;
+                }
+            }
+            glimt_image input; glimt_init(&input);
+            input.width = width; input.height = height; input.depth = depth; input.alpha = alpha;
+            input.stride = stride; input.size = size; input.pixels = pixels;
+            for (uint32_t progressive = 0; progressive < 2; progressive++) for (uint32_t chroma = 0; chroma < 2; chroma++) {
+                glimt_encode_options options = {80, progressive ? 2 : 0, 1, 0, 0, chroma, 0, 0x123456, 16u << 20};
+                glimt_image output;
+                if (encode(&input, &options, &output)) abort();
+                if (!output.pixels || output.size < 4 || output.size > options.max_output_bytes ||
+                    output.pixels[0] != 0xff || output.pixels[1] != 0xd8 ||
+                    output.pixels[output.size - 2] != 0xff || output.pixels[output.size - 1] != 0xd9) abort();
+                release(output.pixels);
+                total++;
+            }
+            free(pixels);
+        }
+    }
+    uint8_t one_pixel[] = {1, 2, 3, 255};
+    glimt_image input; glimt_init(&input);
+    input.width = input.height = 1; input.stride = input.size = 4; input.pixels = one_pixel;
+    glimt_encode_options limited = {80, 2, 1, 0, 0, 1, 0, 0xffffff, 16};
+    glimt_image output;
+    if (!encode(&input, &limited, &output) || output.pixels || output.icc) abort();
+    input.size = 3;
+    limited.max_output_bytes = 1u << 20;
+    if (!encode(&input, &limited, &output) || output.pixels || output.icc) abort();
+    printf("Sanitizer encode matrix: %u cases\n", total + 2);
+    return 0;
+}
 
 static int sanitize_resize(void *library, release_fn release) {
     resize_fn resize = (resize_fn)dlsym(library, "glimt_resize");
@@ -63,7 +122,10 @@ int main(int argc, char **argv) {
     decode_fn decode = (decode_fn)dlsym(library, "glimt_decode");
     release_fn release = (release_fn)dlsym(library, "glimt_release");
     if (!release) return 2;
-    if (!decode) return sanitize_resize(library, release);
+    if (!decode) {
+        if (dlsym(library, "glimt_encode")) return sanitize_encode(library, release);
+        return sanitize_resize(library, release);
+    }
     glimt_limits limits = {1000000, 32u << 20, 1u << 20, 4096, 100, 1, 1, 0, 0};
     unsigned total = 0, valid = 0;
     for (int arg = 2; arg < argc; arg++) {

@@ -14,6 +14,7 @@ unrelated upstream test photographs are not redistributed in those source JARs.
 | --- | --- | --- |
 | AVIF | libavif, libaom, dav1d, libyuv | BSD, plus included patent grants and third-party notices |
 | JPEG | libjpeg-turbo, Little CMS | IJG/BSD, MIT |
+| JPEGli | JPEGli, Highway, libjpeg-turbo headers | BSD, Apache/BSD, IJG/BSD |
 | PNG | libpng, zlib, Little CMS | libpng, zlib, MIT |
 | WebP | libwebp, libsharpyuv | BSD and included patent grant |
 | HEIC | libheif, libde265 | LGPL-3.0-or-later for decoder libraries |
@@ -32,7 +33,7 @@ are included. No x265 encoder, Ghostscript or external delegate is shipped.
 libheif and libde265 are separate shared libraries beside the HEIC bridge;
 they are not statically merged into it. To use modified builds:
 
-1. Unpack the matching `heic-<platform>-0.3.0-sources.jar`.
+1. Unpack the matching `heic-<platform>-0.4.0-sources.jar`.
 2. Run `python3 native/build.py --platform <platform> --codecs heic`, modifying
    the included pinned upstream sources as desired before compilation.
 3. Keep the bridge and its dependencies together with the loader-relative names

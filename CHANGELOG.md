@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0
+
+* Add the optional JPEGli output module with a reusable `JpegConverter`,
+  immutable `JpegOptions` and bounded asynchronous conversion.
+* Support quality, 4:2:0/4:4:4 chroma, progressive scans, adaptive
+  quantization, transparency backgrounds, ICC profiles and 8/10/12/16-bit
+  decoded input.
+* Share decode, orientation, target-aware JPEG downscaling and resize behavior
+  between the AVIF and JPEG output pipelines.
+* Pin JPEGli and its exact Highway/libjpeg source revisions, package the encoder
+  in platform-specific native modules and enforce the existing release
+  provenance, license, clean-runtime and sanitizer gates.
+* Add cross-format JPEG interoperability, option, limit, alpha, colour,
+  concurrency and recovery tests plus real-photo JMH coverage.
+* Document quality-matched experiments on receipt/document and product-photo
+  workloads, including why existing lossy JPEGs should not be re-encoded.
+
 ## 0.3.0
 
 * Decode large JPEG uploads at the smallest libjpeg-turbo scaling factor that

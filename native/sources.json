@@ -9,6 +9,21 @@
     "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.2.0.tar.gz",
     "sha256": "980dd81f425082aa6d7c9e47fef27554ce7a9ffc8e2f6e863b97d263c5c50858"
   },
+  "jpegli": {
+    "version": "031a0077f5799a6041004267fc12b956c1f52a20",
+    "url": "https://github.com/google/jpegli/archive/031a0077f5799a6041004267fc12b956c1f52a20.tar.gz",
+    "sha256": "269b3a75d6b2da2351f7fb2d642043f60f9b6d1bd5839f20c0d7c569be073367"
+  },
+  "jpegli-highway": {
+    "version": "271a9a0ed9de1232d9117f1572c3fe28f8542ec1",
+    "url": "https://github.com/google/highway/archive/271a9a0ed9de1232d9117f1572c3fe28f8542ec1.tar.gz",
+    "sha256": "c42bcfe44d100223ea0043acb3da6de703103ca44bfb1d46b577c90939177f5f"
+  },
+  "jpegli-libjpeg": {
+    "version": "8ecba3647edb6dd940463fedf38ca33a8e2a73d1",
+    "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/8ecba3647edb6dd940463fedf38ca33a8e2a73d1.tar.gz",
+    "sha256": "ed729127097af5000bfeddc6b3e679c4363bb1618ebfc07efb6b47f576471b4b"
+  },
   "png": {
     "version": "1.6.58",
     "url": "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.58.tar.gz",

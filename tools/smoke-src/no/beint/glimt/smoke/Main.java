@@ -19,6 +19,14 @@ public final class Main {
             if (roundtrip.width() != result.width() || roundtrip.height() != result.height()) throw new AssertionError(filename);
             if (args.length > 1) { Path out = Path.of(args[1]); Files.createDirectories(out); Files.write(out.resolve(filename + ".avif"), result.bytes()); }
         }
+        var jpeg = JpegConverter.builder().quality(80).longestEdge(64).build();
+        for (String filename : new String[]{"baseline.jpg", "rgba.png", "lossless.webp", "rgba.heic"}) {
+            var result = jpeg.convert(input.resolve(filename));
+            if (result.width() != 64 || result.height() != 48 || result.outputFormat() != ImageFormat.JPEG ||
+                ImageFormat.detect(result.bytes()) != ImageFormat.JPEG) throw new AssertionError(filename);
+            var roundtrip = converter.convert(result.bytes());
+            if (roundtrip.width() != 64 || roundtrip.height() != 48) throw new AssertionError(filename);
+        }
         System.out.println("Glimt runtime smoke passed: " + expected);
     }
 }

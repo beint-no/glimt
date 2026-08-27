@@ -15,7 +15,7 @@ args = parser.parse_args()
 target = ROOT / 'build/runtime-smoke'
 if target.exists(): shutil.rmtree(target)
 (target / 'lib').mkdir(parents=True)
-modules = ['core', 'avif', 'jpeg', 'png', 'webp', 'heic', 'resize']
+modules = ['core', 'avif', 'jpeg', 'jpegli', 'png', 'webp', 'heic', 'resize']
 for module in modules:
     folders = [ROOT / module / 'build/libs']
     if module != 'core': folders.append(ROOT / 'natives' / f'{module}-{args.platform}' / 'build/libs')

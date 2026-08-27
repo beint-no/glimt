@@ -6,11 +6,12 @@ startup. There is no executable invocation in the conversion path.
 
 ## Modules
 
-* `core`: public conversion API, ServiceLoader codec SPI, bounded input and output,
+* `core`: public AVIF/JPEG conversion APIs, ServiceLoader codec SPI, bounded input and output,
   native loading, EXIF orientation, synchronous conversion and bounded asynchronous
   execution. No java.desktop dependency.
 * `avif`: libavif encoder and decoder, libaom and dav1d, libyuv.
 * `jpeg`: libjpeg-turbo decoder, including CMYK handling.
+* `jpegli`: JPEGli encoder for standard JPEG output.
 * `png`: libpng decoder.
 * `webp`: libwebp decoder.
 * `heic`: libheif and libde265 decoder.
@@ -41,7 +42,8 @@ depth input is retained where the decoder and AVIF support it. Unsupported colou
 or container features must be documented and must not silently claim fidelity.
 
 Optional resizing is defined in user-visible oriented coordinates and runs before
-encoding. The pipeline does not materialize a second compressed image. Bounds preserve aspect ratio and avoid
+encoding. AVIF and JPEG output share this pipeline; it does not materialize an
+intermediate compressed image. Bounds preserve aspect ratio and avoid
 enlargement unless explicitly requested. 8-bit sRGB pixels are filtered in linear
 light, straight alpha is weighted, and 16-bit decoded samples remain 16-bit until
 the AVIF depth boundary. Decoder-provided alpha information avoids scanning opaque JPEGs and
@@ -61,7 +63,7 @@ must not treat timeout or cancellation as termination of native work.
 * Broad generated and upstream-fixture corpus, malformed/truncated inputs,
   transparent images, colour profiles, orientation, high bit depth, animations,
   dimensions and byte limits, output re-decode, concurrency and lifecycle tests.
-* JMH kernel, real-photograph, encoder-parameter, orientation-order, allocation,
+* JMH kernel, real-photograph, AVIF/JPEG encoder-parameter, orientation-order, allocation,
   and concurrent-throughput coverage; benchmark smoke execution is a release gate.
 * Native sanitizer tests and clean-container smoke tests with no installed image
   libraries or codec executables.

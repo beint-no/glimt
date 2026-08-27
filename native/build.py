@@ -9,6 +9,8 @@ import platform
 import shutil
 import subprocess
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
@@ -53,13 +55,29 @@ def tree_hash(archive):
             entries.append([item.name, item.type.decode('ascii'), item.mode, item.linkname, digest])
     return hashlib.sha256(json.dumps(entries, separators=(',', ':')).encode()).hexdigest()
 
+def download(url, target, attempts=4):
+    request = urllib.request.Request(url, headers={'User-Agent': 'glimt-native-build'})
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=120) as stream:
+                data = stream.read()
+            temporary = target.with_suffix(target.suffix + '.tmp')
+            temporary.write_bytes(data)
+            temporary.replace(target)
+            return
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            retryable = not isinstance(error, urllib.error.HTTPError) or error.code in (408, 429, 500, 502, 503, 504)
+            if not retryable or attempt == attempts:
+                raise
+            delay = 2 ** attempt
+            print(f'Download failed ({error}); retrying in {delay}s [{attempt}/{attempts}]', flush=True)
+            time.sleep(delay)
+
 def source(name):
     spec = LOCK[name]
     archive = WORK / 'archives' / (name + '.tar.gz')
     archive.parent.mkdir(parents=True, exist_ok=True)
-    if not archive.exists():
-        with urllib.request.urlopen(spec['url'], timeout=120) as stream:
-            archive.write_bytes(stream.read())
+    if not archive.exists(): download(spec['url'], archive)
     expected = spec.get('tree_sha256', spec['sha256'])
     actual = tree_hash(archive) if 'tree_sha256' in spec else hashlib.sha256(archive.read_bytes()).hexdigest()
     if actual != expected:

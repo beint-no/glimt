@@ -15,6 +15,8 @@
   allocation profiling, and an executable benchmark smoke task.
 * Add quality and bounded-memory regression tests for scaled JPEG decoding and
   every EXIF orientation.
+* Retry transient, rate-limit, and server failures while fetching pinned native
+  sources, using an atomic archive replacement for reliable release builds.
 
 ## 0.2.0
 

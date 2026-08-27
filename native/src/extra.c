@@ -61,6 +61,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     image = BlobToImage(info, data, (size_t)size, error);
     if (!image) goto done;
     if (image->columns != out->width || image->rows != out->height) { glimt_fail(out, "Raster dimensions changed during decode"); goto done; }
+    out->alpha = (image->alpha_trait & BlendPixelTrait) != 0;
     if (image->colorspace == CMYKColorspace || image->colorspace == LabColorspace) {
         glimt_fail(out, "Extended decoder requires RGB or gray source; convert CMYK/Lab PSD explicitly"); goto done;
     }

@@ -25,6 +25,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
         glimt_fail(out, avifResultToString(status)); avifDecoderDestroy(decoder); return 1;
     }
     const avifImage *image = decoder->image;
+    out->alpha = image->alphaPlane != NULL;
     avifImage *view = NULL;
     if (image->transformFlags & AVIF_TRANSFORM_CLAP) {
         avifCropRect rect;
@@ -82,6 +83,7 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
     avifResult status = avifImageSetProfileICC(image, in->icc, (size_t)in->icc_size);
     avifRGBImage rgb; avifRGBImageSetDefaults(&rgb, image);
     rgb.depth = in->depth; rgb.format = AVIF_RGB_FORMAT_RGBA;
+    rgb.ignoreAlpha = in->alpha ? AVIF_FALSE : AVIF_TRUE;
     rgb.pixels = in->pixels; rgb.rowBytes = (uint32_t)in->stride;
     if (options->lossless) rgb.avoidLibYUV = AVIF_TRUE;
     if (status == AVIF_RESULT_OK) status = avifImageRGBToYUV(image, &rgb);

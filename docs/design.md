@@ -16,6 +16,7 @@ startup. There is no executable invocation in the conversion path.
 * `heic`: libheif and libde265 decoder.
 * `jxl`: libjxl, Highway, Brotli and Little CMS.
 * `extra`: restricted embedded MagickCore for PSD, PNM/PAM, ICO and TGA.
+* `resize`: optional SIMD-capable, alpha-aware pixel resizing without `java.desktop`.
 * `jdk-imageio`: optional JDK readers for GIF, BMP, TIFF and WBMP.
 * `all`: convenience aggregate. The supported format matrix is explicit: "all"
   means all published Glimt decoders, not every format ever invented.
@@ -38,6 +39,13 @@ orientation, and strips other metadata. Multi-frame input must have an explicit
 policy; rejecting it by default avoids silently discarding evidence. High bit
 depth input is retained where the decoder and AVIF support it. Unsupported colour
 or container features must be documented and must not silently claim fidelity.
+
+Optional resizing runs after orientation and before encoding. The pipeline does
+not materialize a second compressed image. Bounds preserve aspect ratio and avoid
+enlargement unless explicitly requested. 8-bit sRGB pixels are filtered in linear
+light, straight alpha is weighted, and 16-bit decoded samples remain 16-bit until
+the AVIF depth boundary. Decoder-provided alpha information avoids scanning opaque JPEGs and
+lets the AVIF encoder omit a useless all-opaque alpha plane.
 
 The async API bounds active work and queued input bytes. CPU-bound codec work uses
 bounded platform threads; virtual threads do not increase CPU encoding capacity.

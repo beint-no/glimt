@@ -41,6 +41,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
             if (info.exponent_bits_per_sample || info.bits_per_sample > 16) { error = "Floating-point JPEG XL needs explicit tone mapping"; break; }
             if (info.have_animation && !limits->first_frame) { error = "Multi-frame image requires FIRST_FRAME policy"; break; }
             out->width = info.xsize; out->height = info.ysize; out->depth = info.bits_per_sample > 8 ? 16 : 8;
+            out->alpha = info.alpha_bits != 0;
             format.data_type = out->depth > 8 ? JXL_TYPE_UINT16 : JXL_TYPE_UINT8;
             if (glimt_allocate(out, limits)) { error = NULL; break; }
         } else if (status == JXL_DEC_COLOR_ENCODING) {

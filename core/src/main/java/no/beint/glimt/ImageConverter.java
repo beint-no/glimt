@@ -10,6 +10,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import no.beint.glimt.internal.Metadata;
@@ -21,10 +22,12 @@ public final class ImageConverter {
     private final AvifOptions options;
     private final DecodeLimits limits;
     private final FramePolicy framePolicy;
+    private final ResizeOptions resizeOptions;
     private final Map<ImageFormat, ImageDecoder> decoders;
     private final AvifEncoder encoder;
+    private final ImageResizer resizer;
     private ImageConverter(Builder builder) {
-        options = builder.options; limits = builder.limits; framePolicy = builder.framePolicy;
+        options = builder.options; limits = builder.limits; framePolicy = builder.framePolicy; resizeOptions = builder.resizeOptions;
         EnumMap<ImageFormat, ImageDecoder> selected = new EnumMap<>(ImageFormat.class);
         for (ImageDecoder decoder : ServiceLoader.load(ImageDecoder.class)) for (ImageFormat format : decoder.formats()) {
             if (selected.putIfAbsent(format, decoder) != null) throw new IllegalStateException("Multiple decoders registered for " + format);
@@ -33,6 +36,11 @@ public final class ImageConverter {
         var encoders = ServiceLoader.load(AvifEncoder.class).stream().toList();
         if (encoders.size() != 1) throw new IllegalStateException("Exactly one AVIF encoder is required. Add no.beint.glimt:avif.");
         encoder = encoders.getFirst().get();
+        var resizers = ServiceLoader.load(ImageResizer.class).stream().toList();
+        if (resizers.size() > 1) throw new IllegalStateException("At most one image resizer may be installed");
+        resizer = resizers.isEmpty() ? null : resizers.getFirst().get();
+        if (resizeOptions != null && resizer == null)
+            throw new IllegalStateException("Resizing requires no.beint.glimt:resize");
     }
     /** @return a builder with default limits/options and {@link FramePolicy#REJECT} */
     public static Builder builder() { return new Builder(); }
@@ -42,6 +50,8 @@ public final class ImageConverter {
     public Set<ImageFormat> supportedFormats() { return decoders.keySet(); }
     public DecodeLimits limits() { return limits; }
     public AvifOptions options() { return options; }
+    /** @return configured resize constraint, or empty when source dimensions are preserved */
+    public Optional<ResizeOptions> resizeOptions() { return Optional.ofNullable(resizeOptions); }
     public byte[] toAvif(byte[] input) { return convert(input).bytes(); }
     /**
      * Converts one image synchronously. The caller must not mutate input during this call.
@@ -67,12 +77,25 @@ public final class ImageConverter {
             if (frames > limits.maxFrames() || frames > 1 && framePolicy == FramePolicy.REJECT) throw new ImageException("Image frame policy rejected input");
             int orientation = pixels.orientation() != 1 ? pixels.orientation() : metadata.orientation();
             pixels = Orientation.apply(pixels.withMetadata(frames, orientation), arena);
+            pixels = resize(pixels, arena);
             if (Thread.currentThread().isInterrupted()) throw new ImageException("Conversion interrupted before encoding");
             byte[] output = encoder.encode(pixels, options, arena);
             if (output.length > options.maxOutputBytes()) throw new ImageException("Encoded output exceeds configured limit");
             int depth = options.bitDepth() == 0 ? Math.min(12, pixels.depth()) : options.bitDepth();
             return new ConvertedImage(output, pixels.width(), pixels.height(), depth, frames, format);
         }
+    }
+
+    private PixelImage resize(PixelImage pixels, Arena arena) {
+        if (resizeOptions == null) return pixels;
+        double scale = Math.min((double) resizeOptions.maxWidth() / pixels.width(),
+            (double) resizeOptions.maxHeight() / pixels.height());
+        if (!resizeOptions.allowEnlargement()) scale = Math.min(1.0, scale);
+        int width = Math.max(1, Math.min(resizeOptions.maxWidth(), (int) Math.round(pixels.width() * scale)));
+        int height = Math.max(1, Math.min(resizeOptions.maxHeight(), (int) Math.round(pixels.height() * scale)));
+        if (width == pixels.width() && height == pixels.height()) return pixels;
+        if (Thread.currentThread().isInterrupted()) throw new ImageException("Conversion interrupted before resizing");
+        return Objects.requireNonNull(resizer).resize(pixels, width, height, resizeOptions.filter(), limits, arena);
     }
     /** Reads at most maxInputBytes + 1; the caller retains ownership of the stream. */
     public ConvertedImage convert(InputStream input) throws IOException {
@@ -120,12 +143,19 @@ public final class ImageConverter {
         private AvifOptions options = AvifOptions.DEFAULT;
         private DecodeLimits limits = DecodeLimits.DEFAULT;
         private FramePolicy framePolicy = FramePolicy.REJECT;
+        private ResizeOptions resizeOptions;
         private Builder() {}
         public Builder options(AvifOptions value) { options = Objects.requireNonNull(value); return this; }
         public Builder quality(int value) { options = options.withQuality(value); return this; }
         public Builder effort(int value) { options = options.withEffort(value); return this; }
         public Builder limits(DecodeLimits value) { limits = Objects.requireNonNull(value); return this; }
         public Builder frames(FramePolicy value) { framePolicy = Objects.requireNonNull(value); return this; }
+        /** Applies an aspect-preserving constraint after orientation and before encoding. */
+        public Builder resize(ResizeOptions value) { resizeOptions = Objects.requireNonNull(value); return this; }
+        /** Convenience for {@code resize(ResizeOptions.fitWithin(maxWidth, maxHeight))}. */
+        public Builder fitWithin(int maxWidth, int maxHeight) { return resize(ResizeOptions.fitWithin(maxWidth, maxHeight)); }
+        /** Convenience for {@code resize(ResizeOptions.longestEdge(maximum))}. */
+        public Builder longestEdge(int maximum) { return resize(ResizeOptions.longestEdge(maximum)); }
         public ImageConverter build() { return new ImageConverter(this); }
     }
 }

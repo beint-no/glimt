@@ -29,6 +29,7 @@ public final class Orientation {
             MemorySegment.copy(source.pixels(), (long)y * source.stride() + (long)x * pixelSize,
                 target, (long)dy * stride + (long)dx * pixelSize, pixelSize);
         }
-        return new PixelImage(width, height, source.depth(), source.frames(), 1, source.primaries(), source.transfer(), stride, target, source.icc());
+        return new PixelImage(width, height, source.depth(), source.frames(), 1, source.primaries(), source.transfer(),
+            source.hasAlpha(), stride, target, source.icc());
     }
 }

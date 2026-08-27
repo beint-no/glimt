@@ -36,7 +36,8 @@ or reflective access exceptions.
 `./gradlew build` runs the corpus through native/JDK decoders and libaom,
 then decodes AVIF output with dav1d. It checks lossless RGBA, EXIF orientations,
 16-bit samples, ICC/gamma, APNG posters, frame policy, failure cleanup, limits,
-atomic writes and async work. `tools/runtime-smoke.py` builds a java.base-only
+atomic writes, async work, resize filters, linear-light interpolation, alpha
+weighting, odd strides and resize bounds. `tools/runtime-smoke.py` builds a java.base-only
 runtime and checks the small bundle on classpath and module path. Linux Docker
 tests copy that runtime into clean bases without image package installation.
 
@@ -75,7 +76,7 @@ Photograph licenses and provenance are included with the corpus.
 7. Fetch actual published artifacts from Central into a clean consumer and
    repeat conversion tests. An accepted upload is not proof of publication.
 
-Publishing tasks require all 21 native bundles, hashes, source locks, source
+Publishing tasks require all 24 native bundles, hashes, source locks, source
 archives, CI provenance and notices. Keep the collected ZIPs under
 `native/.work/release-artifacts` until publication. Local single-platform builds are allowed but cannot
 publish an incomplete distribution to Central.

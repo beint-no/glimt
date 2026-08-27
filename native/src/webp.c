@@ -10,6 +10,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     out->width = WebPDemuxGetI(demux, WEBP_FF_CANVAS_WIDTH);
     out->height = WebPDemuxGetI(demux, WEBP_FF_CANVAS_HEIGHT);
     out->frames = WebPDemuxGetI(demux, WEBP_FF_FRAME_COUNT);
+    out->alpha = (WebPDemuxGetI(demux, WEBP_FF_FORMAT_FLAGS) & ALPHA_FLAG) != 0;
     int failed = glimt_frames(out, limits) || glimt_allocate(out, limits);
     WebPChunkIterator chunk;
     if (!failed && WebPDemuxGetChunk(demux, "ICCP", 1, &chunk)) {

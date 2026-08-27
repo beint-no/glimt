@@ -23,6 +23,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     if (error.code != heif_error_Ok) { failed = glimt_fail(out, error.message); goto done; }
     out->width = (uint32_t)heif_image_handle_get_width(handle);
     out->height = (uint32_t)heif_image_handle_get_height(handle);
+    out->alpha = heif_image_handle_has_alpha_channel(handle) != 0;
     out->depth = heif_image_handle_get_luma_bits_per_pixel(handle) > 8 ? 16 : 8;
     if (glimt_dimensions(out, limits)) { failed = 1; goto done; }
     options = heif_decoding_options_alloc();

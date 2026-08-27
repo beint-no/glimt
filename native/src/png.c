@@ -40,6 +40,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     if (color == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png);
     if (color == PNG_COLOR_TYPE_GRAY && depth < 8) png_set_expand_gray_1_2_4_to_8(png);
     const int transparency = png_get_valid(png, info, PNG_INFO_tRNS) != 0;
+    out->alpha = (color & PNG_COLOR_MASK_ALPHA) || transparency;
     if (transparency) png_set_tRNS_to_alpha(png);
     if (color == PNG_COLOR_TYPE_GRAY || color == PNG_COLOR_TYPE_GRAY_ALPHA) png_set_gray_to_rgb(png);
     if (!(color & PNG_COLOR_MASK_ALPHA) && !transparency) png_set_add_alpha(png, depth == 16 ? 65535 : 255, PNG_FILLER_AFTER);

@@ -57,6 +57,8 @@ This uses separate outputs and instruments codecs and bridge with ASan/UBSan.
 The standalone harness exercises valid images, truncations and deterministic
 mutations plus JPEG encoder depths, alpha, options and output caps. It is
 regression testing, not exhaustive fuzzing or a security audit.
+Release bundles strip symbol and debug tables after their loader paths are fixed;
+sanitizer outputs remain unstripped for actionable diagnostics.
 Some Apple-Clang/macOS combinations fail during sanitizer runtime startup;
 Linux is the release gate.
 

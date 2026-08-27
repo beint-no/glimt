@@ -54,10 +54,10 @@ resize. The JPEGli encoder was roughly 10–25% slower than optimized
 libjpeg-turbo encoding in the exploratory corpus, a reasonable trade for the
 measured byte savings in this asynchronous upload path.
 
-The macOS ARM64 native library is 246 KiB and its complete platform JAR is 128
-KiB compressed, including provenance and licenses. It dynamically depends only
-on standard macOS system libraries. Linux sizes must be recorded from verified
-CI bundles before making a cross-platform image-size claim.
+The stripped macOS ARM64 native library is 219 KiB and its complete platform JAR
+is 121 KiB compressed, including provenance and licenses. It dynamically
+depends only on standard macOS system libraries. Linux sizes must be recorded
+from verified CI bundles before making a cross-platform image-size claim.
 
 ## Upstream and maintenance
 

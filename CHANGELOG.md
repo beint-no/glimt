@@ -12,6 +12,8 @@
 * Pin JPEGli and its exact Highway/libjpeg source revisions, package the encoder
   in platform-specific native modules and enforce the existing release
   provenance, license, clean-runtime and sanitizer gates.
+* Strip symbol and debug tables from release-native bundles while retaining
+  instrumented symbols in the separate sanitizer build.
 * Add cross-format JPEG interoperability, option, limit, alpha, colour,
   concurrency and recovery tests plus real-photo JMH coverage.
 * Document quality-matched experiments on receipt/document and product-photo

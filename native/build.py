@@ -185,6 +185,8 @@ def bridge(codec, libraries, shared=(), cflags=()):
                 if path.startswith(str(PREFIX)) or path.startswith('@rpath/'):
                     dependency = (PREFIX / 'lib' / Path(path).name).resolve().name
                     run(['install_name_tool', '-change', path, '@loader_path/' + dependency, item])
+            if not args.sanitize:
+                run(['strip', '-S', '-x', item])
             run(['codesign', '--force', '--sign', '-', item])
     else:
         for item in target.glob('*.so*'):
@@ -193,6 +195,8 @@ def bridge(codec, libraries, shared=(), cflags=()):
                 bundled = PREFIX / 'lib' / dependency
                 if bundled.exists() and (target / bundled.resolve().name).exists():
                     run(['patchelf', '--replace-needed', dependency, bundled.resolve().name, item])
+            if not args.sanitize:
+                run(['strip', '--strip-unneeded', item])
     manifest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(target.iterdir())
                 if p.is_file() and (p.name.endswith('.dylib') or '.so' in p.name)}
     (target / 'manifest.properties').write_text(''.join(name + '=' + digest + '\n' for name, digest in manifest.items()))

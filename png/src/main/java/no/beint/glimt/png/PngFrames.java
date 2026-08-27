@@ -96,7 +96,8 @@ final class PngFrames {
         MemorySegment canvas = arena.allocate(stride * canvasHeight, 8);
         for (int row = 0; row < height; row++) MemorySegment.copy(decoded.pixels(), row * decoded.stride(),
             canvas, (row + (long)y) * stride + (long)x * sampleSize, (long)width * sampleSize);
-        return new PixelImage(canvasWidth, canvasHeight, decoded.depth(), frames, 1, decoded.primaries(), decoded.transfer(), stride, canvas, decoded.icc());
+        return new PixelImage(canvasWidth, canvasHeight, decoded.depth(), frames, 1, decoded.primaries(), decoded.transfer(),
+            decoded.hasAlpha(), stride, canvas, decoded.icc());
     }
     private static void chunk(ByteArrayOutputStream output, String name, byte[] data) {
         byte[] type = name.getBytes(StandardCharsets.ISO_8859_1);

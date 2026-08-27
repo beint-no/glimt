@@ -35,6 +35,7 @@ public final class JdkImageDecoder implements ImageDecoder {
             if (count < 1 || count > limits.maxFrames() || count > 1 && frames == FramePolicy.REJECT)
                 throw new ImageException("Multi-frame input rejected by frame policy");
             BufferedImage image = reader.read(0);
+            boolean hasAlpha = image.getColorModel().hasAlpha();
             int left = 0, top = 0, background = 0;
             if (format == ImageFormat.GIF) {
                 Node streamMetadata = reader.getStreamMetadata().getAsTree("javax_imageio_gif_stream_1.0");
@@ -58,6 +59,8 @@ public final class JdkImageDecoder implements ImageDecoder {
                         }
                     }
                 }
+                hasAlpha |= background == 0 &&
+                    (left != 0 || top != 0 || image.getWidth() != width || image.getHeight() != height);
             }
             long stride = (long)width * 4;
             MemorySegment pixels = arena.allocate(stride * height, 4);
@@ -81,7 +84,8 @@ public final class JdkImageDecoder implements ImageDecoder {
                     case "FlipVRotate90" -> 7; case "Rotate90" -> 8; default -> 1;
                 };
             }
-            return new PixelImage(width, height, 8, count, orientation, 1, 13, stride, pixels, MemorySegment.NULL);
+            return new PixelImage(width, height, 8, count, orientation, 1, 13,
+                hasAlpha, stride, pixels, MemorySegment.NULL);
         } catch (IOException | IndexOutOfBoundsException exception) {
             throw new ImageException("Cannot decode " + format, exception);
         } finally { reader.dispose(); }

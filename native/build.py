@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 LOCK = json.loads((ROOT / 'sources.json').read_text())
 parser = argparse.ArgumentParser()
 parser.add_argument('--platform', default='macos-arm64' if platform.system() == 'Darwin' else 'linux-x64-glibc')
-parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl,extra')
+parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl,extra,resize')
 parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 2))
 parser.add_argument('--sanitize', action='store_true', help='Build instrumented codecs in a separate output tree')
 args = parser.parse_args()
@@ -262,4 +262,8 @@ for codec in args.codecs.split(','):
                       PREFIX / 'lib/libz.a', PREFIX / 'lib/liblcms2.a'],
                cflags=['-I' + str(PREFIX / 'include/ImageMagick-7'), '-DMAGICKCORE_QUANTUM_DEPTH=16', '-DMAGICKCORE_HDRI_ENABLE=0'])
         notices(codec, ['magick', 'png', 'zlib', 'lcms'])
+    elif codec == 'resize':
+        stb = source('stb')
+        bridge(codec, [], cflags=['-I' + str(stb)])
+        notices(codec, ['stb'])
     else: raise ValueError('Unknown codec: ' + codec)

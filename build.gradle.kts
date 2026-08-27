@@ -4,17 +4,17 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.1.0" }
+allprojects { group = "no.beint.glimt"; version = "0.2.0" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 
-val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl", "extra")
+val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl", "extra", "resize")
 val platforms = listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")
 val nativeSources = mapOf(
     "avif" to listOf("avif", "aom", "dav1d", "yuv"),
     "jpeg" to listOf("jpeg", "lcms"), "png" to listOf("png", "zlib", "lcms"),
     "webp" to listOf("webp"), "heic" to listOf("heif", "de265"),
     "jxl" to listOf("jxl", "highway", "brotli", "lcms"),
-    "extra" to listOf("magick", "png", "zlib", "lcms"),
+    "extra" to listOf("magick", "png", "zlib", "lcms"), "resize" to listOf("stb"),
 )
 val verifyNativeRelease = tasks.register<Exec>("verifyNativeRelease") {
     description = "Refuse publishing incomplete native distributions or missing corresponding sources."
@@ -35,19 +35,19 @@ subprojects {
         isReproducibleFileOrder = true
         from(rootProject.file("LICENSE")) { into("META-INF") }
     }
-    if (name != "core" && name != "tests" && name !in codecs.flatMap { codec -> platforms.map { "$codec-$it" } }) {
-        dependencies.add("api", project(":core"))
+    if (name != "core" && name != "tests" && name != "benchmarks" && name !in codecs.flatMap { codec -> platforms.map { "$codec-$it" } }) {
+        dependencies.add("api", dependencies.project(mapOf("path" to ":core")))
     }
     if (name in codecs) {
-        for (platform in platforms) dependencies.add("runtimeOnly", project(":$name-$platform"))
+        for (platform in platforms) dependencies.add("runtimeOnly", dependencies.project(mapOf("path" to ":$name-$platform")))
     }
     if (name == "all") {
-        for (module in codecs + "jdk-imageio") dependencies.add("api", project(":$module"))
+        for (module in codecs + "jdk-imageio") dependencies.add("api", dependencies.project(mapOf("path" to ":$module")))
     }
     val codec = codecs.firstOrNull { name.startsWith("$it-") }
     if (codec != null) {
         val platform = name.removePrefix("$codec-")
-        dependencies.add("implementation", project(":core"))
+        dependencies.add("implementation", dependencies.project(mapOf("path" to ":core")))
         val moduleName = "no.beint.glimt.natives." + name.replace('-', '.').replace("arm64", "arm64bit").replace("x64", "x64bit")
         val generated = layout.buildDirectory.dir("generated/nativeBundle")
         val generateBundle = tasks.register("generateNativeBundle") {
@@ -91,7 +91,7 @@ subprojects {
             manifest.attributes["Automatic-Module-Name"] = moduleName
         }
     }
-    if (name != "tests") {
+    if (name != "tests" && name != "benchmarks") {
         apply(plugin = "com.vanniktech.maven.publish")
         extensions.configure<MavenPublishBaseExtension>("mavenPublishing") {
             publishToMavenCentral()

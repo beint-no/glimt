@@ -8,7 +8,7 @@ in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.1.0")
+    implementation("no.beint.glimt:all:0.2.0")
 }
 ```
 
@@ -19,6 +19,18 @@ import java.nio.file.Path;
 var images = ImageConverter.create(); // reusable and thread-safe
 byte[] avif = images.toAvif(inputBytes);
 images.convert(Path.of("photo.heic"), Path.of("photo.avif"));
+```
+
+Constrain uploads before AVIF encoding with the optional native resize module
+(`all` already includes it):
+
+```java
+var mobileImages = ImageConverter.builder()
+    .longestEdge(1600) // aspect ratio retained; smaller images stay unchanged
+    .quality(85)
+    .build();
+
+ConvertedImage result = mobileImages.convert(uploadBytes);
 ```
 
 Grant native access explicitly at application startup:
@@ -37,13 +49,14 @@ unsupported features and configured limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.1.0"
+val glimt = "0.2.0"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
     runtimeOnly("no.beint.glimt:png:$glimt")
     runtimeOnly("no.beint.glimt:webp:$glimt")
     runtimeOnly("no.beint.glimt:heic:$glimt")
+    runtimeOnly("no.beint.glimt:resize:$glimt")
 }
 ```
 
@@ -54,7 +67,7 @@ exclude the other platform artifacts:
 
 ```kotlin
 configurations.configureEach {
-    for (codec in listOf("avif", "jpeg", "png", "webp", "heic")) {
+    for (codec in listOf("avif", "jpeg", "png", "webp", "heic", "resize")) {
         exclude(group = "no.beint.glimt", module = "$codec-macos-arm64")
         exclude(group = "no.beint.glimt", module = "$codec-linux-x64-glibc")
     }
@@ -78,6 +91,7 @@ and native bundles on both classpath and module path. Shaded JARs must merge
 | `jxl` | JPEG XL | libjxl; integer samples through 16-bit, alpha, orientation and animation selection |
 | `jdk-imageio` | GIF, BMP, TIFF, WBMP | JDK readers only; normalizes to 8-bit sRGB; requires `java.desktop` |
 | `extra` | PSD/PSB, PNM/PAM, ICO, TGA | Restricted embedded MagickCore; RGB/gray PSD composite, integer pixels through 16-bit |
+| `resize` | Pixel transform | SIMD-capable stb_image_resize2; aspect-preserving, alpha-aware, linear-light 8-bit sRGB and native 16-bit samples |
 | `all` | All above | Convenience aggregate |
 
 `all` means all Glimt decoders, not every format or codec ever defined. SVG,
@@ -104,6 +118,15 @@ at most 12 bits per channel, so 16-bit input is quantized to 12-bit unless an
 explicit depth is chosen. The ImageIO module has an 8-bit boundary. `lossless`
 preserves decoded samples, not an original JPEG compression stream; incompatible
 depth/chroma choices are rejected.
+
+Resizing happens after orientation and before encoding, so configured bounds
+describe the image a user sees. `fitWithin(width, height)` and
+`longestEdge(maximum)` preserve aspect ratio, never crop, and do not enlarge by
+default. `ResizeOptions.withEnlargement(true)` opts in. Mitchell filtering is the
+quality default; triangle and box trade some reconstruction quality for speed.
+Straight alpha is weighted while filtering, fully transparent colour is
+canonicalized, and known-opaque sources take a faster path. Add `resize`
+explicitly to a selective bundle; configuration fails at startup if it is missing.
 
 Animations, multipage TIFFs and multiple HEIC images are rejected by default.
 Opt in to dropping later frames with `FramePolicy.FIRST_FRAME`. APNG selects
@@ -167,10 +190,10 @@ choose the parent. There is no host-codec fallback or startup network access.
 
 ## Build, tests and licensing
 
-See [native builds](docs/native-build.md), [native licensing](docs/native-licenses.md)
-and [the design](docs/design.md). Tests cover generated patterns and licensed
+See [native builds](docs/native-build.md), [native licensing](docs/native-licenses.md),
+[benchmarks](docs/benchmarks.md) and [the design](docs/design.md). Tests cover generated patterns and licensed
 photographs, orientation, profiles, alpha, bit depth, animations, malformed
-input, limits, concurrency and output decoding. CI also exercises minimal
+input, limits, concurrency, resizing and output decoding. CI also exercises minimal
 JPMS/classpath runtimes, clean Linux containers and native sanitizers.
 
 The Java API and original bridge source are Apache-2.0. Native components keep

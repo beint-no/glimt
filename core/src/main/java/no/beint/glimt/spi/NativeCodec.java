@@ -11,12 +11,16 @@ import static java.lang.foreign.ValueLayout.*;
 @SuppressWarnings("restricted") // All native pointers are bounded and scoped at this ABI boundary.
 public final class NativeCodec {
     private static final ConcurrentHashMap<String, NativeCodec> CODECS = new ConcurrentHashMap<>();
+    private final int abiVersion;
     private final MethodHandle decode, encode, release;
     private NativeCodec(String name) {
         SymbolLookup lookup = NativeLibrary.load(name);
         Linker linker = Linker.nativeLinker();
         MethodHandle abi = linker.downcallHandle(lookup.findOrThrow("glimt_abi"), FunctionDescriptor.of(JAVA_INT));
-        try { if ((int) abi.invokeExact() != 1) throw new ImageException("Incompatible Glimt native ABI for " + name); }
+        try {
+            abiVersion = (int) abi.invokeExact();
+            if (abiVersion != 1 && abiVersion != 2) throw new ImageException("Incompatible Glimt native ABI for " + name);
+        }
         catch (Throwable error) { throw failure(error); }
         decode = linker.downcallHandle(lookup.findOrThrow("glimt_decode"), FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS));
         encode = lookup.find("glimt_encode").map(symbol -> linker.downcallHandle(symbol, FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS))).orElse(null);
@@ -47,8 +51,10 @@ public final class NativeCodec {
                 if (icc.address() == 0) throw new ImageException("Native codec returned a null colour profile");
                 managedIcc = icc.reinterpret(iccSize, arena, this::free); iccOwned = true;
             }
+            boolean hasAlpha = abiVersion >= 2 ? result.get(JAVA_INT, 28) != 0 : hasTransparency(managedPixels, width, height,
+                result.get(JAVA_LONG, 32), depth);
             return new PixelImage(width, height, depth, result.get(JAVA_INT, 12), result.get(JAVA_INT, 16),
-                result.get(JAVA_INT, 20), result.get(JAVA_INT, 24), result.get(JAVA_LONG, 32), managedPixels, managedIcc);
+                result.get(JAVA_INT, 20), result.get(JAVA_INT, 24), hasAlpha, result.get(JAVA_LONG, 32), managedPixels, managedIcc);
         } finally {
             if (!pixelsOwned && pixels.address() != 0) free(pixels);
             if (!iccOwned && icc.address() != 0) free(icc);
@@ -59,6 +65,7 @@ public final class NativeCodec {
         MemorySegment source = arena.allocate(328, 8), settings = arena.allocate(40, 8), result = arena.allocate(328, 8);
         source.set(JAVA_INT, 0, input.width()); source.set(JAVA_INT, 4, input.height()); source.set(JAVA_INT, 8, input.depth());
         source.set(JAVA_INT, 20, input.primaries()); source.set(JAVA_INT, 24, input.transfer());
+        source.set(JAVA_INT, 28, input.hasAlpha() ? 1 : 0);
         source.set(JAVA_LONG, 32, input.stride()); source.set(JAVA_LONG, 40, input.pixels().byteSize());
         source.set(JAVA_LONG, 48, input.icc().byteSize()); source.set(ADDRESS, 56, input.pixels()); source.set(ADDRESS, 64, input.icc());
         settings.set(JAVA_INT, 0, options.quality()); settings.set(JAVA_INT, 4, options.alphaQuality());
@@ -76,6 +83,15 @@ public final class NativeCodec {
     }
     private void free(MemorySegment memory) {
         try { release.invokeExact(memory); } catch (Throwable error) { throw failure(error); }
+    }
+    private static boolean hasTransparency(MemorySegment pixels, int width, int height, long stride, int depth) {
+        if (depth > 8) {
+            int maximum = (1 << depth) - 1;
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+                if (Short.toUnsignedInt(pixels.get(JAVA_SHORT_UNALIGNED, (long)y * stride + (long)x * 8 + 6)) != maximum) return true;
+        } else for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+            if (Byte.toUnsignedInt(pixels.get(JAVA_BYTE, (long)y * stride + (long)x * 4 + 3)) != 255) return true;
+        return false;
     }
     private static RuntimeException failure(Throwable error) {
         if (error instanceof Error fatal) throw fatal;

@@ -11,7 +11,7 @@
 #define API __attribute__((visibility("default")))
 #endif
 
-/* ABI 2: fixed-width fields; all supported platforms are little-endian 64-bit. */
+/* ABI 3: fixed-width fields; all supported platforms are little-endian 64-bit. */
 typedef struct {
     uint32_t width, height, depth, frames, orientation, primaries, transfer, alpha;
     uint64_t stride, size, icc_size;
@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
     uint64_t max_pixels, max_decoded_bytes, max_metadata_bytes;
     uint32_t max_dimension, max_frames, threads, first_frame;
+    uint32_t target_width, target_height;
 } glimt_limits;
 typedef struct {
     uint32_t quality, alpha_quality, effort, threads, depth, chroma, lossless, reserved;
@@ -31,11 +32,11 @@ typedef struct {
     uint64_t max_output_bytes;
 } glimt_resize_options;
 _Static_assert(sizeof(glimt_image) == 328, "Glimt image ABI");
-_Static_assert(sizeof(glimt_limits) == 40, "Glimt limits ABI");
+_Static_assert(sizeof(glimt_limits) == 48, "Glimt limits ABI");
 _Static_assert(sizeof(glimt_encode_options) == 40, "Glimt options ABI");
 _Static_assert(sizeof(glimt_resize_options) == 24, "Glimt resize options ABI");
 
-API uint32_t glimt_abi(void) { return 2; }
+API uint32_t glimt_abi(void) { return 3; }
 API void glimt_release(void *memory) { free(memory); }
 static inline void glimt_init(glimt_image *out) {
     memset(out, 0, sizeof(*out));

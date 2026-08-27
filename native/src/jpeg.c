@@ -46,6 +46,36 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     out->width = (uint32_t)tj3Get(decoder, TJPARAM_JPEGWIDTH);
     out->height = (uint32_t)tj3Get(decoder, TJPARAM_JPEGHEIGHT);
     out->depth = (uint32_t)tj3Get(decoder, TJPARAM_PRECISION);
+    const uint32_t source_width = out->width, source_height = out->height;
+    if (!source_width || !source_height || source_width > limits->max_dimension || source_height > limits->max_dimension ||
+        (uint64_t)source_width * source_height > limits->max_pixels) {
+        failed = glimt_fail(out, "Image dimensions exceed configured limits"); goto done;
+    }
+    if (limits->target_width && limits->target_height &&
+        (limits->target_width < source_width || limits->target_height < source_height)) {
+        int factor_count = 0;
+        tjscalingfactor *factors = tj3GetScalingFactors(&factor_count);
+        if (!factors || factor_count < 1) {
+            failed = glimt_fail(out, "Cannot query JPEG scaling factors"); goto done;
+        }
+        tjscalingfactor selected = TJUNSCALED;
+        uint64_t selected_pixels = (uint64_t)source_width * source_height;
+        for (int index = 0; index < factor_count; index++) {
+            const tjscalingfactor factor = factors[index];
+            if (factor.num > factor.denom) continue;
+            const uint32_t width = (uint32_t)TJSCALED(source_width, factor);
+            const uint32_t height = (uint32_t)TJSCALED(source_height, factor);
+            const uint64_t pixels = (uint64_t)width * height;
+            if (width >= limits->target_width && height >= limits->target_height && pixels < selected_pixels) {
+                selected = factor; selected_pixels = pixels;
+            }
+        }
+        if ((selected.num != selected.denom) && tj3SetScalingFactor(decoder, selected)) {
+            failed = glimt_fail(out, tj3GetErrorStr(decoder)); goto done;
+        }
+        out->width = (uint32_t)TJSCALED(source_width, selected);
+        out->height = (uint32_t)TJSCALED(source_height, selected);
+    }
     if (glimt_allocate(out, limits)) { failed = 1; goto done; }
     int profile_status = tj3GetICCProfile(decoder, NULL, &profile_size);
     if ((profile_status && !(profile_size == 0 && tj3GetErrorCode(decoder) == TJERR_WARNING && !icc_marker(data, (size_t)size))) || profile_size > limits->max_metadata_bytes) {

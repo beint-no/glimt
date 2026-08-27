@@ -40,12 +40,16 @@ policy; rejecting it by default avoids silently discarding evidence. High bit
 depth input is retained where the decoder and AVIF support it. Unsupported colour
 or container features must be documented and must not silently claim fidelity.
 
-Optional resizing runs after orientation and before encoding. The pipeline does
-not materialize a second compressed image. Bounds preserve aspect ratio and avoid
+Optional resizing is defined in user-visible oriented coordinates and runs before
+encoding. The pipeline does not materialize a second compressed image. Bounds preserve aspect ratio and avoid
 enlargement unless explicitly requested. 8-bit sRGB pixels are filtered in linear
 light, straight alpha is weighted, and 16-bit decoded samples remain 16-bit until
 the AVIF depth boundary. Decoder-provided alpha information avoids scanning opaque JPEGs and
-lets the AVIF encoder omit a useless all-opaque alpha plane.
+lets the AVIF encoder omit a useless all-opaque alpha plane. JPEG resizing supplies
+an exact target hint through ABI 3, allowing libjpeg-turbo to choose a coarse IDCT
+scale without undershooting. The exact filter still owns final dimensions. For
+rotated inputs, resizing on raw axes before materializing orientation reduces the
+copied buffer while retaining the same visible geometry.
 
 The async API bounds active work and queued input bytes. CPU-bound codec work uses
 bounded platform threads; virtual threads do not increase CPU encoding capacity.
@@ -57,6 +61,8 @@ must not treat timeout or cancellation as termination of native work.
 * Broad generated and upstream-fixture corpus, malformed/truncated inputs,
   transparent images, colour profiles, orientation, high bit depth, animations,
   dimensions and byte limits, output re-decode, concurrency and lifecycle tests.
+* JMH kernel, real-photograph, encoder-parameter, orientation-order, allocation,
+  and concurrent-throughput coverage; benchmark smoke execution is a release gate.
 * Native sanitizer tests and clean-container smoke tests with no installed image
   libraries or codec executables.
 * Native source versions, SHA-256 hashes, complete notices and reproducible build

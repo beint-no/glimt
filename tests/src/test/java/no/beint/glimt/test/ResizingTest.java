@@ -6,6 +6,9 @@ import java.lang.foreign.ValueLayout;
 import java.util.ServiceLoader;
 import java.util.stream.Stream;
 import no.beint.glimt.*;
+import no.beint.glimt.internal.Metadata;
+import no.beint.glimt.internal.Orientation;
+import no.beint.glimt.spi.DecodeTarget;
 import no.beint.glimt.spi.ImageDecoder;
 import no.beint.glimt.spi.NativeCodec;
 import no.beint.glimt.spi.NativeResizer;
@@ -32,6 +35,93 @@ class ResizingTest {
         assertEquals(37, Math.max(result.width(), result.height()), name);
         assertTrue(result.width() <= 37 && result.height() <= 37, name);
         assertEquals(ImageFormat.AVIF, ImageFormat.detect(result.bytes()));
+    }
+
+    @Test
+    void jpegDecodeScalingPreservesExactOutputAndVisualQuality() throws Exception {
+        byte[] sourceBytes = fixture("dog_exif_extended_xmp_icc.jpg");
+        Metadata metadata = Metadata.read(sourceBytes, ImageFormat.JPEG, DecodeLimits.DEFAULT);
+        assertEquals(4032, metadata.width()); assertEquals(3024, metadata.height());
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment input = arena.allocateFrom(ValueLayout.JAVA_BYTE, sourceBytes);
+            var codec = NativeCodec.of("jpeg");
+            PixelImage full = codec.decode(input, DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            PixelImage coarse = codec.decode(input, DecodeLimits.DEFAULT, FramePolicy.REJECT,
+                new DecodeTarget(1600, 1200), arena);
+            PixelImage thumbnail = codec.decode(input, DecodeLimits.DEFAULT, FramePolicy.REJECT,
+                new DecodeTarget(800, 600), arena);
+            assertEquals(4032, full.width()); assertEquals(3024, full.height());
+            assertEquals(2016, coarse.width()); assertEquals(1512, coarse.height());
+            assertEquals(1008, thumbnail.width()); assertEquals(756, thumbnail.height());
+            PixelImage reference = NativeResizer.of("resize").resize(full, 1600, 1200,
+                ResizeFilter.MITCHELL, DecodeLimits.DEFAULT, arena);
+            PixelImage optimized = NativeResizer.of("resize").resize(coarse, 1600, 1200,
+                ResizeFilter.MITCHELL, DecodeLimits.DEFAULT, arena);
+            double error = 0;
+            long samples = 0;
+            for (long offset = 0; offset < reference.pixels().byteSize(); offset += 4) {
+                for (int channel = 0; channel < 3; channel++) {
+                    int delta = Byte.toUnsignedInt(reference.pixels().get(ValueLayout.JAVA_BYTE, offset + channel)) -
+                        Byte.toUnsignedInt(optimized.pixels().get(ValueLayout.JAVA_BYTE, offset + channel));
+                    error += (double) delta * delta; samples++;
+                }
+            }
+            double psnr = 10 * Math.log10(255.0 * 255.0 / (error / samples));
+            assertTrue(psnr >= 38, "scaled IDCT PSNR was " + psnr);
+        }
+        var converted = ImageConverter.builder().effort(0).longestEdge(1600).build().convert(sourceBytes);
+        assertEquals(1200, converted.width()); assertEquals(1600, converted.height());
+    }
+
+    @Test
+    void jpegDecodeScalingUsesTheBoundedPixelBudget() throws Exception {
+        byte[] source = fixture("dog_exif_extended_xmp_icc.jpg");
+        var limits = new DecodeLimits(8L << 20, 40_000_000, 16L << 20, 4L << 20, 32768, 10);
+        var converted = ImageConverter.builder().limits(limits).effort(0).longestEdge(1600).build().convert(source);
+        assertEquals(1200, converted.width()); assertEquals(1600, converted.height());
+        assertThrows(ImageException.class, () -> ImageConverter.builder().limits(limits).effort(0).build().convert(source));
+        var strictPixels = new DecodeLimits(8L << 20, 2_000_000, 16L << 20, 4L << 20, 32768, 10);
+        assertThrows(ImageException.class,
+            () -> ImageConverter.builder().limits(strictPixels).effort(0).longestEdge(800).build().convert(source));
+    }
+
+    @Test
+    void validatesDecodeTargets() {
+        assertEquals(DecodeTarget.NONE, new DecodeTarget(0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new DecodeTarget(1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new DecodeTarget(-1, 1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {2, 3, 4, 5, 6, 7, 8})
+    void resizeBeforeOrientationIsPixelEquivalent(int orientation) throws Exception {
+        byte[] source = fixture("orientation-" + orientation + ".jpg");
+        try (Arena arena = Arena.ofConfined()) {
+            PixelImage decoded = NativeCodec.of("jpeg").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, source),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena).withMetadata(1, orientation);
+            int orientedWidth = orientation >= 5 ? decoded.height() : decoded.width();
+            int orientedHeight = orientation >= 5 ? decoded.width() : decoded.height();
+            double scale = Math.min(41.0 / orientedWidth, 31.0 / orientedHeight);
+            int width = Math.max(1, (int) Math.round(orientedWidth * scale));
+            int height = Math.max(1, (int) Math.round(orientedHeight * scale));
+            PixelImage reference = NativeResizer.of("resize").resize(Orientation.apply(decoded, arena), width, height,
+                ResizeFilter.MITCHELL, DecodeLimits.DEFAULT, arena);
+            int rawWidth = orientation >= 5 ? height : width;
+            int rawHeight = orientation >= 5 ? width : height;
+            PixelImage resizedFirst = NativeResizer.of("resize").resize(decoded, rawWidth, rawHeight,
+                ResizeFilter.MITCHELL, DecodeLimits.DEFAULT, arena).withMetadata(1, orientation);
+            PixelImage optimized = Orientation.apply(resizedFirst, arena);
+            assertEquals(reference.width(), optimized.width()); assertEquals(reference.height(), optimized.height());
+            double error = 0;
+            for (long offset = 0; offset < reference.pixels().byteSize(); offset++) {
+                int delta = Byte.toUnsignedInt(reference.pixels().get(ValueLayout.JAVA_BYTE, offset)) -
+                    Byte.toUnsignedInt(optimized.pixels().get(ValueLayout.JAVA_BYTE, offset));
+                error += (double) delta * delta;
+            }
+            double psnr = error == 0 ? Double.POSITIVE_INFINITY :
+                10 * Math.log10(255.0 * 255.0 / (error / reference.pixels().byteSize()));
+            assertTrue(psnr >= 50, "orientation " + orientation + " PSNR was " + psnr);
+        }
     }
 
     @Test

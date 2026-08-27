@@ -41,6 +41,10 @@ weighting, odd strides and resize bounds. `tools/runtime-smoke.py` builds a java
 runtime and checks the small bundle on classpath and module path. Linux Docker
 tests copy that runtime into clean bases without image package installation.
 
+`./gradlew :benchmarks:benchmarkSmoke` executes every JMH parameter combination
+once as an integration check. Full measurements remain opt-in with
+`./gradlew :benchmarks:jmh`; timing thresholds are deliberately not part of CI.
+
 Native instrumentation on Linux:
 
 ```sh

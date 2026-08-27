@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0
+
+* Decode large JPEG uploads at the smallest libjpeg-turbo scaling factor that
+  still covers the requested output, then apply the exact high-quality resize.
+* Resize pixels on their raw axes before materializing EXIF orientation, while
+  preserving the same user-visible bounds and high visual equivalence.
+* Transfer libavif's final encoded allocation directly to the FFM bridge owner,
+  removing a native allocation and full output copy.
+* Extend the decoder SPI and native ABI with backwards-compatible target hints;
+  Java 0.3 accepts native ABI 1 through 3.
+* Add real-photograph decode and conversion benchmarks, encoder thread/chroma
+  matrices, alpha resizing, orientation ordering, concurrent throughput, managed
+  allocation profiling, and an executable benchmark smoke task.
+* Add quality and bounded-memory regression tests for scaled JPEG decoding and
+  every EXIF orientation.
+
 ## 0.2.0
 
 * Add the optional `resize` module and `fitWithin`/`longestEdge` conversion API.

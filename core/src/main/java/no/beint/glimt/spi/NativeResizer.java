@@ -17,7 +17,7 @@ public final class NativeResizer {
         SymbolLookup lookup = NativeLibrary.load(name);
         Linker linker = Linker.nativeLinker();
         MethodHandle abi = linker.downcallHandle(lookup.findOrThrow("glimt_abi"), FunctionDescriptor.of(JAVA_INT));
-        try { if ((int) abi.invokeExact() != 2) throw new ImageException("Incompatible Glimt native ABI for " + name); }
+        try { int version = (int) abi.invokeExact(); if (version != 2 && version != 3) throw new ImageException("Incompatible Glimt native ABI for " + name); }
         catch (Throwable error) { throw failure(error); }
         resize = linker.downcallHandle(lookup.findOrThrow("glimt_resize"), FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
         release = linker.downcallHandle(lookup.findOrThrow("glimt_release"), FunctionDescriptor.ofVoid(ADDRESS));

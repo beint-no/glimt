@@ -4,7 +4,7 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.2.0" }
+allprojects { group = "no.beint.glimt"; version = "0.3.0" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 
 val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl", "extra", "resize")

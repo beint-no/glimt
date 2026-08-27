@@ -46,11 +46,18 @@ public final class AsyncJpegConverter implements AutoCloseable {
         try {
             byte[] snapshot = input.clone();
             executor.execute(() -> {
-                try { if (!future.isCancelled()) future.complete(converter.convert(snapshot)); }
+                ConvertedImage converted;
+                try {
+                    converted = converter.convert(snapshot);
+                }
                 catch (Throwable error) {
+                    retained.addAndGet(-size);
                     future.completeExceptionally(error);
                     if (error instanceof VirtualMachineError fatal) throw fatal;
-                } finally { retained.addAndGet(-size); }
+                    return;
+                }
+                retained.addAndGet(-size);
+                if (!future.isCancelled()) future.complete(converted);
             });
         } catch (RuntimeException | Error error) {
             retained.addAndGet(-size);

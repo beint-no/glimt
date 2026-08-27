@@ -88,6 +88,12 @@
   "stb": {
     "version": "2c980bb59875b0d32144a71867fbdebb2f77cd20",
     "url": "https://github.com/nothings/stb/archive/2c980bb59875b0d32144a71867fbdebb2f77cd20.tar.gz",
-    "sha256": "9a955b1b49a4410088a2e0ee2a9c057c3c907d0c1d75454144cb980aca0ba515"
+    "sha256": "9a955b1b49a4410088a2e0ee2a9c057c3c907d0c1d75454144cb980aca0ba515",
+    "patches": [
+      {
+        "file": "stb/0001-defined-srgb-simd-table-lookup.patch",
+        "sha256": "24ac208d298c30d3db930fbd16b4a621791b32706aadc34c844f49e7920a9b14"
+      }
+    ]
   }
 }

@@ -138,7 +138,7 @@ subprojects {
         }
         if (codec != null) tasks.named<Jar>("sourcesJar") {
             from(rootProject.file("native/src")) { into("native/src") }
-            if (name.contains("-linux-")) {
+            if (project.name.contains("-linux-")) {
                 // Only Linux bundles statically link GCC runtime components.
                 from(rootProject.file("native/licenses")) { into("native/licenses") }
             }
@@ -153,6 +153,25 @@ subprojects {
             for (source in if (codec == "heic") nativeSources.getValue(codec) else emptyList()) {
                 from(rootProject.file("native/.work/archives/$source.tar.gz")) { into("native/.work/archives") }
             }
+        }
+        if (codec != null) {
+            val sourceArchive = layout.buildDirectory.file("libs/${project.name}-${project.version}-sources.jar").get().asFile
+            val expectsGccLicenses = project.name.contains("-linux-")
+            val verifySourceLicenseScope = tasks.register("verifySourceLicenseScope") {
+                description = "Checks that Linux-only GCC license texts have the correct source-JAR scope."
+                dependsOn("sourcesJar")
+                inputs.file(sourceArchive)
+                doLast {
+                    java.util.zip.ZipFile(sourceArchive).use { archive ->
+                        val gccLicenses = listOf("native/licenses/COPYING3", "native/licenses/COPYING.RUNTIME")
+                        val present = gccLicenses.map { archive.getEntry(it) != null }
+                        check(present.all { it } == expectsGccLicenses && present.distinct().size == 1) {
+                            "GCC license scope mismatch in ${sourceArchive.name}"
+                        }
+                    }
+                }
+            }
+            tasks.named("check") { dependsOn(verifySourceLicenseScope) }
         }
         tasks.matching { it.name.startsWith("publish") && !it.name.contains("MavenLocal") }.configureEach {
             dependsOn(verifyNativeRelease)

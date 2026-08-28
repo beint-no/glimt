@@ -14,7 +14,7 @@ python3 tools/runtime-smoke.py
 
 Use `--platform linux-x64-glibc` or `linux-x64-musl` on the corresponding host.
 These are native builds, not cross-compilation switches. Select codecs using
-`--codecs avif,jpeg,png`. Build `png` before `extra`. macOS defaults to ARM64,
+`--codecs avif,jpeg,jpegli,png`. Build `png` before `extra`. macOS defaults to ARM64,
 normal Linux builds to glibc.
 
 `native/sources.json` pins versions/checksums. GitHub archives use SHA-256 of the
@@ -33,8 +33,9 @@ or reflective access exceptions.
 
 ## Checks
 
-`./gradlew build` runs the corpus through native/JDK decoders and libaom,
-then decodes AVIF output with dav1d. It checks lossless RGBA, EXIF orientations,
+`./gradlew build` runs the corpus through native/JDK decoders and the AVIF and
+JPEGli encoders, then independently decodes the outputs with dav1d,
+libjpeg-turbo and JDK ImageIO. It checks lossless RGBA, EXIF orientations,
 16-bit samples, ICC/gamma, APNG posters, frame policy, failure cleanup, limits,
 atomic writes, async work, resize filters, linear-light interpolation, alpha
 weighting, odd strides and resize bounds. `tools/runtime-smoke.py` builds a java.base-only
@@ -54,7 +55,10 @@ CC=clang CXX=clang++ python3 native/sanitize.py
 
 This uses separate outputs and instruments codecs and bridge with ASan/UBSan.
 The standalone harness exercises valid images, truncations and deterministic
-mutations. It is regression testing, not exhaustive fuzzing or a security audit.
+mutations plus JPEG encoder depths, alpha, options and output caps. It is
+regression testing, not exhaustive fuzzing or a security audit.
+Release bundles strip symbol and debug tables after their loader paths are fixed;
+sanitizer outputs remain unstripped for actionable diagnostics.
 Some Apple-Clang/macOS combinations fail during sanitizer runtime startup;
 Linux is the release gate.
 
@@ -80,7 +84,7 @@ Photograph licenses and provenance are included with the corpus.
 7. Fetch actual published artifacts from Central into a clean consumer and
    repeat conversion tests. An accepted upload is not proof of publication.
 
-Publishing tasks require all 24 native bundles, hashes, source locks, source
+Publishing tasks require all 27 native bundles, hashes, source locks, source
 archives, CI provenance and notices. Keep the collected ZIPs under
 `native/.work/release-artifacts` until publication. Local single-platform builds are allowed but cannot
 publish an incomplete distribution to Central.

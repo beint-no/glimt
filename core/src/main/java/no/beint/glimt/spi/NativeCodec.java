@@ -23,7 +23,8 @@ public final class NativeCodec {
             if (abiVersion < 1 || abiVersion > 3) throw new ImageException("Incompatible Glimt native ABI for " + name);
         }
         catch (Throwable error) { throw failure(error); }
-        decode = linker.downcallHandle(lookup.findOrThrow("glimt_decode"), FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS));
+        decode = lookup.find("glimt_decode").map(symbol -> linker.downcallHandle(symbol,
+            FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS))).orElse(null);
         encode = lookup.find("glimt_encode").map(symbol -> linker.downcallHandle(symbol, FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS))).orElse(null);
         release = linker.downcallHandle(lookup.findOrThrow("glimt_release"), FunctionDescriptor.ofVoid(ADDRESS));
     }
@@ -32,6 +33,7 @@ public final class NativeCodec {
         return decode(input, limits, frames, DecodeTarget.NONE, arena);
     }
     public PixelImage decode(MemorySegment input, DecodeLimits limits, FramePolicy frames, DecodeTarget target, Arena arena) {
+        if (decode == null) throw new ImageException("Codec cannot decode images");
         Objects.requireNonNull(target, "target");
         MemorySegment settings = arena.allocate(abiVersion >= 3 ? 48 : 40, 8), result = arena.allocate(328, 8);
         settings.set(JAVA_LONG, 0, limits.maxPixels()); settings.set(JAVA_LONG, 8, limits.maxDecodedBytes());
@@ -70,21 +72,36 @@ public final class NativeCodec {
     }
     public byte[] encode(PixelImage input, AvifOptions options, Arena arena) {
         if (encode == null) throw new ImageException("Codec cannot encode AVIF");
-        MemorySegment source = arena.allocate(328, 8), settings = arena.allocate(40, 8), result = arena.allocate(328, 8);
+        MemorySegment settings = arena.allocate(40, 8);
+        settings.set(JAVA_INT, 0, options.quality()); settings.set(JAVA_INT, 4, options.alphaQuality());
+        settings.set(JAVA_INT, 8, options.effort()); settings.set(JAVA_INT, 12, options.threads());
+        settings.set(JAVA_INT, 16, options.bitDepth()); settings.set(JAVA_INT, 20, options.chroma() == Chroma.YUV420 ? 1 : 0);
+        settings.set(JAVA_INT, 24, options.lossless() ? 1 : 0); settings.set(JAVA_LONG, 32, options.maxOutputBytes());
+        return encode(input, settings, options.maxOutputBytes(), "AVIF", arena);
+    }
+    public byte[] encode(PixelImage input, JpegOptions options, Arena arena) {
+        if (encode == null) throw new ImageException("Codec cannot encode JPEG");
+        MemorySegment settings = arena.allocate(40, 8);
+        settings.set(JAVA_INT, 0, options.quality());
+        settings.set(JAVA_INT, 4, options.progressive() ? 2 : 0);
+        settings.set(JAVA_INT, 8, options.adaptiveQuantization() ? 1 : 0);
+        settings.set(JAVA_INT, 20, options.chroma() == Chroma.YUV420 ? 1 : 0);
+        settings.set(JAVA_INT, 28, options.backgroundRgb());
+        settings.set(JAVA_LONG, 32, options.maxOutputBytes());
+        return encode(input, settings, options.maxOutputBytes(), "JPEG", arena);
+    }
+    private byte[] encode(PixelImage input, MemorySegment settings, long maxOutputBytes, String format, Arena arena) {
+        MemorySegment source = arena.allocate(328, 8), result = arena.allocate(328, 8);
         source.set(JAVA_INT, 0, input.width()); source.set(JAVA_INT, 4, input.height()); source.set(JAVA_INT, 8, input.depth());
         source.set(JAVA_INT, 20, input.primaries()); source.set(JAVA_INT, 24, input.transfer());
         source.set(JAVA_INT, 28, input.hasAlpha() ? 1 : 0);
         source.set(JAVA_LONG, 32, input.stride()); source.set(JAVA_LONG, 40, input.pixels().byteSize());
         source.set(JAVA_LONG, 48, input.icc().byteSize()); source.set(ADDRESS, 56, input.pixels()); source.set(ADDRESS, 64, input.icc());
-        settings.set(JAVA_INT, 0, options.quality()); settings.set(JAVA_INT, 4, options.alphaQuality());
-        settings.set(JAVA_INT, 8, options.effort()); settings.set(JAVA_INT, 12, options.threads());
-        settings.set(JAVA_INT, 16, options.bitDepth()); settings.set(JAVA_INT, 20, options.chroma() == Chroma.YUV420 ? 1 : 0);
-        settings.set(JAVA_INT, 24, options.lossless() ? 1 : 0); settings.set(JAVA_LONG, 32, options.maxOutputBytes());
         try {
             int status = (int) encode.invokeExact(source, settings, result);
             if (status != 0) throw new ImageException(result.asSlice(72, 256).getString(0));
             long size = result.get(JAVA_LONG, 40);
-            if (size < 1 || size > options.maxOutputBytes()) throw new ImageException("Invalid encoded buffer size");
+            if (size < 1 || size > maxOutputBytes) throw new ImageException("Invalid encoded " + format + " buffer size");
             return result.get(ADDRESS, 56).reinterpret(size).toArray(JAVA_BYTE);
         } catch (Throwable error) { throw failure(error); }
         finally { MemorySegment buffer = result.get(ADDRESS, 56); if (buffer.address() != 0) free(buffer); }

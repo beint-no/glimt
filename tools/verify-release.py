@@ -9,6 +9,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = json.loads((ROOT / 'native/sources.json').read_text())
 CODECS = {'avif': ['avif', 'aom', 'dav1d', 'yuv'], 'jpeg': ['jpeg', 'lcms'],
+          'jpegli': ['jpegli', 'jpegli-highway', 'jpegli-libjpeg', 'lcms'],
           'png': ['png', 'zlib', 'lcms'], 'webp': ['webp'], 'heic': ['heif', 'de265'],
           'jxl': ['jxl', 'highway', 'brotli', 'lcms'], 'extra': ['magick', 'png', 'zlib', 'lcms'],
           'resize': ['stb']}
@@ -69,4 +70,4 @@ revision = revisions.pop()
 subprocess.run(['git', 'diff', '--exit-code', revision, '--', 'native'], cwd=ROOT, check=True,
                stdout=subprocess.DEVNULL)
 print('Verified native source revision', revision)
-print('Publication gate: all 24 native bundles and corresponding sources verified')
+print('Publication gate: all 27 native bundles and corresponding sources verified')

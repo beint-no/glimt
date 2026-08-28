@@ -33,6 +33,8 @@ class ConversionTest {
     void convertsCorpusAndDecodesOutputWithDav1d(String name) throws Exception {
         byte[] source = fixture(name);
         ConvertedImage converted = FAST.convert(source);
+        assertEquals(ImageFormat.AVIF, converted.outputFormat());
+        assertEquals("image/avif", converted.mediaType());
         assertEquals(ImageFormat.AVIF, ImageFormat.detect(converted.bytes()));
         assertEquals(97, converted.width(), name); assertEquals(73, converted.height(), name);
         try (Arena arena = Arena.ofConfined()) {

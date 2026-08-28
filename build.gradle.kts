@@ -4,14 +4,15 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.3.0" }
+allprojects { group = "no.beint.glimt"; version = "0.4.0" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 
-val codecs = listOf("avif", "jpeg", "png", "webp", "heic", "jxl", "extra", "resize")
+val codecs = listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")
 val platforms = listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")
 val nativeSources = mapOf(
     "avif" to listOf("avif", "aom", "dav1d", "yuv"),
     "jpeg" to listOf("jpeg", "lcms"), "png" to listOf("png", "zlib", "lcms"),
+    "jpegli" to listOf("jpegli", "jpegli-highway", "jpegli-libjpeg", "lcms"),
     "webp" to listOf("webp"), "heic" to listOf("heif", "de265"),
     "jxl" to listOf("jxl", "highway", "brotli", "lcms"),
     "extra" to listOf("magick", "png", "zlib", "lcms"), "resize" to listOf("stb"),

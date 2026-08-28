@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 LOCK = json.loads((ROOT / 'sources.json').read_text())
 parser = argparse.ArgumentParser()
 parser.add_argument('--platform', default='macos-arm64' if platform.system() == 'Darwin' else 'linux-x64-glibc')
-parser.add_argument('--codecs', default='avif,jpeg,png,webp,heic,jxl,extra,resize')
+parser.add_argument('--codecs', default='avif,jpeg,jpegli,png,webp,heic,jxl,extra,resize')
 parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 2))
 parser.add_argument('--sanitize', action='store_true', help='Build instrumented codecs in a separate output tree')
 args = parser.parse_args()
@@ -155,8 +155,12 @@ def bridge(codec, libraries, shared=(), cflags=()):
     target = DIST / codec
     target.mkdir(parents=True, exist_ok=True)
     obj = BUILD / (codec + '-bridge.o')
-    run([ENV.get('CC', 'cc'), '-std=c11', '-O3', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
-         '-I' + str(PREFIX / 'include'), *cflags, '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
+    cpp = (ROOT / 'src' / (codec + '.cc')).exists()
+    source_file = ROOT / 'src' / (codec + ('.cc' if cpp else '.c'))
+    compiler = ENV.get('CXX', 'c++') if cpp else ENV.get('CC', 'cc')
+    standard = '-std=c++17' if cpp else '-std=c11'
+    run([compiler, standard, '-O3', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
+         '-I' + str(PREFIX / 'include'), *cflags, '-c', source_file, '-o', obj])
     suffix = 'dylib' if platform.system() == 'Darwin' else 'so'
     output = target / ('libglimt_' + codec + '.' + suffix)
     flags = ['-dynamiclib', '-Wl,-install_name,@loader_path/' + output.name] if suffix == 'dylib' else [
@@ -165,8 +169,8 @@ def bridge(codec, libraries, shared=(), cflags=()):
     instrumentation = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
     if instrumentation:
         # Compile the ABI bridge itself with the same instrumentation as codecs.
-        run([ENV.get('CC', 'cc'), '-std=c11', '-O1', '-g', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
-             *instrumentation, '-I' + str(PREFIX / 'include'), *cflags, '-c', ROOT / 'src' / (codec + '.c'), '-o', obj])
+        run([compiler, standard, '-O1', '-g', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
+             *instrumentation, '-I' + str(PREFIX / 'include'), *cflags, '-c', source_file, '-o', obj])
     run([ENV.get('CXX', 'c++'), *flags, *instrumentation, '-o', output, obj, *libraries, '-lm', '-pthread'])
     for name in shared:
         candidates = list((PREFIX / 'lib').glob(name + '*.' + suffix + '*'))
@@ -181,6 +185,8 @@ def bridge(codec, libraries, shared=(), cflags=()):
                 if path.startswith(str(PREFIX)) or path.startswith('@rpath/'):
                     dependency = (PREFIX / 'lib' / Path(path).name).resolve().name
                     run(['install_name_tool', '-change', path, '@loader_path/' + dependency, item])
+            if not args.sanitize:
+                run(['strip', '-S', '-x', item])
             run(['codesign', '--force', '--sign', '-', item])
     else:
         for item in target.glob('*.so*'):
@@ -189,6 +195,8 @@ def bridge(codec, libraries, shared=(), cflags=()):
                 bundled = PREFIX / 'lib' / dependency
                 if bundled.exists() and (target / bundled.resolve().name).exists():
                     run(['patchelf', '--replace-needed', dependency, bundled.resolve().name, item])
+            if not args.sanitize:
+                run(['strip', '--strip-unneeded', item])
     manifest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(target.iterdir())
                 if p.is_file() and (p.name.endswith('.dylib') or '.so' in p.name)}
     (target / 'manifest.properties').write_text(''.join(name + '=' + digest + '\n' for name, digest in manifest.items()))
@@ -215,6 +223,33 @@ for codec in args.codecs.split(','):
         meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
         bridge(codec, [PREFIX / 'lib/libturbojpeg.a', PREFIX / 'lib/liblcms2.a'])
         notices(codec, ['jpeg', 'lcms'])
+    elif codec == 'jpegli':
+        jpegli = source('jpegli')
+        for name, folder in (('highway', 'jpegli-highway'), ('libjpeg-turbo', 'jpegli-libjpeg')):
+            dependency = source(folder)
+            link = jpegli / 'third_party' / name
+            if not link.is_symlink():
+                if link.exists(): shutil.rmtree(link)
+                link.symlink_to(dependency, target_is_directory=True)
+        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        jpegli_build = BUILD / 'jpegli'
+        run(['cmake', '-S', jpegli, '-B', jpegli_build, '-G', 'Ninja',
+             '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
+             '-DCMAKE_PREFIX_PATH=' + str(PREFIX), '-DBUILD_SHARED_LIBS=OFF', '-DBUILD_TESTING=OFF',
+             '-DJPEGLI_ENABLE_FUZZERS=OFF', '-DJPEGLI_ENABLE_DEVTOOLS=OFF', '-DJPEGLI_ENABLE_TOOLS=OFF',
+             '-DJPEGLI_ENABLE_JPEGLI_LIBJPEG=OFF', '-DJPEGLI_ENABLE_DOXYGEN=OFF', '-DJPEGLI_ENABLE_MANPAGES=OFF',
+             '-DJPEGLI_ENABLE_BENCHMARK=OFF', '-DJPEGLI_ENABLE_JNI=OFF', '-DJPEGLI_ENABLE_SJPEG=OFF',
+             '-DJPEGLI_ENABLE_OPENEXR=OFF', '-DJPEGLI_ENABLE_SKCMS=OFF', '-DJPEGLI_ENABLE_TCMALLOC=OFF',
+             '-DJPEGLI_WARNINGS_AS_ERRORS=OFF', '-DJPEGLI_FORCE_SYSTEM_LCMS2=ON',
+             '-DJPEGLI_VERSION=' + LOCK['jpegli']['version'],
+             '-DLCMS2_LIBRARY=' + str(PREFIX / 'lib/liblcms2.a'), '-DLCMS2_INCLUDE_DIR=' + str(PREFIX / 'include'),
+             '-DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_PNG=ON',
+             '-DCMAKE_DISABLE_FIND_PACKAGE_GIF=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON'])
+        run(['cmake', '--build', jpegli_build, '--parallel', args.jobs, '--target', 'jpegli-static'])
+        bridge(codec, [jpegli_build / 'lib/libjpegli-static.a', jpegli_build / 'third_party/highway/libhwy.a'],
+               cflags=['-I' + str(jpegli), '-I' + str(jpegli_build / 'lib/include'),
+                       '-I' + str(jpegli_build / 'lib/include/jpegli')])
+        notices(codec, ['jpegli', 'jpegli-highway', 'jpegli-libjpeg', 'lcms'])
     elif codec == 'png':
         cmake('zlib', ['-DZLIB_BUILD_TESTING=OFF', '-DZLIB_BUILD_SHARED=OFF', '-DZLIB_BUILD_STATIC=ON'])
         cmake('png', ['-DPNG_SHARED=OFF', '-DPNG_STATIC=ON', '-DPNG_TESTS=OFF', '-DPNG_TOOLS=OFF',

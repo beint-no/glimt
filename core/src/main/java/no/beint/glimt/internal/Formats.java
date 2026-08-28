@@ -3,6 +3,7 @@ package no.beint.glimt.internal;
 import java.nio.charset.StandardCharsets;
 import no.beint.glimt.ImageFormat;
 
+/** @hidden */
 public final class Formats {
     private Formats() {}
     public static ImageFormat detect(byte[] data) {

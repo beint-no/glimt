@@ -1,14 +1,20 @@
 # Glimt
 
-Image-to-AVIF and image-to-JPEG conversion using JDK 26 FFM and bundled native codecs. No JNI,
-third-party Java runtime dependencies, installed image utilities, subprocesses
-in the conversion path, or runtime downloads.
+**Native-quality image conversion that deploys like an ordinary JVM library.**
 
-## Use
+Glimt converts images to AVIF or optimized JPEG using JDK 26 FFM and bundled
+native codecs. It has no JNI, third-party Java runtime dependencies, installed
+image utilities, subprocesses in the conversion path, or runtime downloads.
+
+[Website](https://beint-no.github.io/glimt/) ·
+[Javadocs](https://javadoc.io/doc/no.beint.glimt/core/latest/index.html) ·
+[Maven Central](https://central.sonatype.com/namespace/no.beint.glimt)
+
+## Quick start
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.4.0")
+    implementation("no.beint.glimt:all:0.4.1")
 }
 ```
 
@@ -20,6 +26,12 @@ var images = ImageConverter.create(); // reusable and thread-safe
 byte[] avif = images.toAvif(inputBytes);
 images.convert(Path.of("photo.heic"), Path.of("photo.avif"));
 ```
+
+That dependency already contains the native libraries for supported macOS,
+glibc Linux and musl Linux runtimes. Glimt detects the running platform. There
+is no `apt install`, Alpine package, Dockerfile fragment, native path, or libc
+choice in application code. The same application artifact can be built on a
+developer Mac and deployed to Linux.
 
 Constrain uploads before AVIF encoding with the optional native resize module
 (`all` already includes it):
@@ -57,17 +69,27 @@ Grant native access explicitly at application startup:
 java --enable-native-access=ALL-UNNAMED -jar application.jar
 ```
 
-On the module path use `--enable-native-access=no.beint.glimt`. No preview
-features or `--add-opens` are required. Glimt detects formats from bytes, not
-filenames or MIME types. `ImageException` reports invalid input, missing codecs,
-unsupported features and configured limits.
+An executable classpath JAR can bake the same permission into its own manifest,
+which also applies to Spring Boot's `bootJar`:
+
+```kotlin
+tasks.withType<Jar>().configureEach {
+    manifest.attributes["Enable-Native-Access"] = "ALL-UNNAMED"
+}
+```
+
+On the module path use `--enable-native-access=no.beint.glimt`. Native access is
+the only deployment setting. No preview features or `--add-opens` are required.
+Glimt detects formats from bytes, not filenames or MIME types. `ImageException`
+reports invalid input, missing codecs, unsupported features and configured
+limits.
 
 ## Smaller bundles
 
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.4.0"
+val glimt = "0.4.1"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -82,7 +104,7 @@ For JPEG output instead of AVIF, replace the `avif` encoder with `jpegli` while
 keeping only the input decoders and optional resize module you need:
 
 ```kotlin
-val glimt = "0.4.0"
+val glimt = "0.4.1"
 dependencies {
     implementation("no.beint.glimt:jpegli:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -91,20 +113,12 @@ dependencies {
 }
 ```
 
-This excludes JPEG XL, ImageMagick and `java.desktop`. Codec modules normally
-bring native bundles for all supported platforms, so the same dependency works
-on a developer Mac and a Linux server. For a deployment limited to one platform,
-exclude the other platform artifacts:
-
-```kotlin
-configurations.configureEach {
-    for (codec in listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "resize")) {
-        exclude(group = "no.beint.glimt", module = "$codec-macos-arm64")
-        exclude(group = "no.beint.glimt", module = "$codec-linux-x64-glibc")
-    }
-}
-// Keeps linux-x64-musl only; do not apply this to macOS tests.
-```
+This excludes JPEG XL, ImageMagick and `java.desktop`. Codec modules bring the
+native bundles for every supported platform by default. Most applications
+should keep those small compressed resources and never think about deployment
+libc. Applications that build a platform-specific artifact can trim unused
+platform resources as an explicit size optimization; see the
+[deployment guide](docs/deployment.md).
 
 Use the same version for every Glimt artifact. ServiceLoader discovers codecs
 and native bundles on both classpath and module path. Shaded JARs must merge
@@ -214,10 +228,13 @@ total RSS guarantee: codec workspaces, AV1 encoding, orientation copies and JDK
 readers need extra memory. Set concurrency and process/container limits for
 your workload. Native parsers run inside the JVM; FFM is not a security sandbox.
 
-| Native suffix | Baseline |
+These are Glimt's published binary baselines, not choices a normal consumer
+must make:
+
+| Native suffix | Compatibility baseline |
 | --- | --- |
 | `macos-arm64` | macOS 14+, Apple Silicon |
-| `linux-x64-glibc` | Linux x86-64, glibc 2.35+ |
+| `linux-x64-glibc` | Linux x86-64, glibc 2.35+; tested on Ubuntu 22.04 and 26.04 |
 | `linux-x64-musl` | Linux x86-64, musl 1.2.5+; Alpine 3.23/BellSoft hardened base |
 
 Windows, Linux ARM64 and Intel macOS binaries are not published in this release.
@@ -228,9 +245,10 @@ choose the parent. There is no host-codec fallback or startup network access.
 
 ## Build, tests and licensing
 
-See [native builds](docs/native-build.md), [native licensing](docs/native-licenses.md),
-[benchmarks](docs/benchmarks.md), [the JPEGli evaluation](docs/jpegli-evaluation.md) and
-[the design](docs/design.md). Tests cover generated patterns and licensed
+See [deployment](docs/deployment.md), [native builds](docs/native-build.md),
+[native licensing](docs/native-licenses.md), [benchmarks](docs/benchmarks.md),
+[the JPEGli evaluation](docs/jpegli-evaluation.md) and [the design](docs/design.md).
+Tests cover generated patterns and licensed
 photographs, orientation, profiles, alpha, bit depth, animations, malformed
 input, limits, concurrency, resizing and output decoding. CI also exercises minimal
 JPMS/classpath runtimes, clean Linux containers and native sanitizers.

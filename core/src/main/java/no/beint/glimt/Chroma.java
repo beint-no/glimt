@@ -1,4 +1,9 @@
 package no.beint.glimt;
 
-/** AVIF chroma sampling. Full chroma is suitable for text and product details. */
-public enum Chroma { YUV444, YUV420 }
+/** Chroma sampling used by AVIF and JPEG encoders. */
+public enum Chroma {
+    /** Full chroma resolution, suitable for text, graphics and fine product details. */
+    YUV444,
+    /** Quarter chroma resolution, usually smaller and suitable for photographs. */
+    YUV420
+}

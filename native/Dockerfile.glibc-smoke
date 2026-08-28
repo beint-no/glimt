@@ -1,4 +1,9 @@
-FROM ubuntu:22.04
+# Maintainer compatibility test; consumers do not need this Dockerfile.
+# Ubuntu 22.04 is the oldest supported glibc runtime. CI also supplies
+# ubuntu:26.04 here to verify the current production generation without raising
+# the binary compatibility floor.
+ARG RUNTIME_IMAGE=ubuntu:22.04
+FROM ${RUNTIME_IMAGE}
 # The runtime and codec jars are copied from the verified build. No package
 # install, image utility, image library, compiler or network fetch occurs here.
 COPY build/runtime-smoke/jdk /opt/java

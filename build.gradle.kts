@@ -4,8 +4,12 @@ import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.4.0" }
+allprojects { group = "no.beint.glimt"; version = "0.4.1" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
+val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
+    description = "Checks documentation links and consumer coordinates against the release version."
+    commandLine("python3", "tools/verify-docs.py", version.toString())
+}
 
 val codecs = listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")
 val platforms = listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")
@@ -31,6 +35,16 @@ subprojects {
         options.release.set(26)
         options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
     }
+    tasks.withType<Javadoc>().configureEach {
+        // Keep link, HTML and accessibility checks strict while allowing
+        // implementation/provider members to inherit concise API prose.
+        (options as org.gradle.external.javadoc.StandardJavadocDocletOptions).apply {
+            addBooleanOption("Xdoclint:all,-missing", true)
+            addStringOption("-show-module-contents", "api")
+            addStringOption("-show-packages", "exported")
+        }
+    }
+    tasks.named("check") { dependsOn(verifyDocumentation) }
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true
@@ -64,15 +78,19 @@ subprojects {
                     package $moduleName;
                     /** Bundled $codec native resources for $platform. */
                     public final class Bundle implements no.beint.glimt.spi.NativeBundle {
+                        /** Creates the service provider discovered by {@link java.util.ServiceLoader}. */
                         public Bundle() {}
+                        /** {@inheritDoc} */
                         public String codec() { return "$codec"; }
+                        /** {@inheritDoc} */
                         public String platform() { return "$platform"; }
+                        /** {@inheritDoc} */
                         public java.io.InputStream open(String filename) {
                             return Bundle.class.getResourceAsStream("/no/beint/glimt/natives/$codec/$platform/" + filename);
                         }
                     }
                 """.trimIndent() + "\n")
-                folder.resolve("java/module-info.java").writeText("module $moduleName { requires no.beint.glimt; provides no.beint.glimt.spi.NativeBundle with $moduleName.Bundle; }\n")
+                folder.resolve("java/module-info.java").writeText("/** Native $codec resources for $platform. */\nmodule $moduleName { requires no.beint.glimt; provides no.beint.glimt.spi.NativeBundle with $moduleName.Bundle; }\n")
                 val service = folder.resolve("resources/META-INF/services/no.beint.glimt.spi.NativeBundle")
                 service.parentFile.mkdirs(); service.writeText("$moduleName.Bundle\n")
             }
@@ -120,7 +138,10 @@ subprojects {
         }
         if (codec != null) tasks.named<Jar>("sourcesJar") {
             from(rootProject.file("native/src")) { into("native/src") }
-            from(rootProject.file("native/licenses")) { into("native/licenses") }
+            if (project.name.contains("-linux-")) {
+                // Only Linux bundles statically link GCC runtime components.
+                from(rootProject.file("native/licenses")) { into("native/licenses") }
+            }
             from(rootProject.file("native/patches")) {
                 for (source in nativeSources.getValue(codec)) include("$source/**")
                 into("native/patches")
@@ -132,6 +153,25 @@ subprojects {
             for (source in if (codec == "heic") nativeSources.getValue(codec) else emptyList()) {
                 from(rootProject.file("native/.work/archives/$source.tar.gz")) { into("native/.work/archives") }
             }
+        }
+        if (codec != null) {
+            val sourceArchive = layout.buildDirectory.file("libs/${project.name}-${project.version}-sources.jar").get().asFile
+            val expectsGccLicenses = project.name.contains("-linux-")
+            val verifySourceLicenseScope = tasks.register("verifySourceLicenseScope") {
+                description = "Checks that Linux-only GCC license texts have the correct source-JAR scope."
+                dependsOn("sourcesJar")
+                inputs.file(sourceArchive)
+                doLast {
+                    java.util.zip.ZipFile(sourceArchive).use { archive ->
+                        val gccLicenses = listOf("native/licenses/COPYING3", "native/licenses/COPYING.RUNTIME")
+                        val present = gccLicenses.map { archive.getEntry(it) != null }
+                        check(present.all { it } == expectsGccLicenses && present.distinct().size == 1) {
+                            "GCC license scope mismatch in ${sourceArchive.name}"
+                        }
+                    }
+                }
+            }
+            tasks.named("check") { dependsOn(verifySourceLicenseScope) }
         }
         tasks.matching { it.name.startsWith("publish") && !it.name.contains("MavenLocal") }.configureEach {
             dependsOn(verifyNativeRelease)

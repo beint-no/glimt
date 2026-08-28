@@ -4,7 +4,10 @@ import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Bounded CPU executor. Rejection is immediate; cancellation never pretends to stop native code. */
+/**
+ * Bounded CPU executor for AVIF conversion.
+ * Rejection is immediate; cancellation never pretends to stop native code.
+ */
 public final class AsyncImageConverter implements AutoCloseable {
     private final ImageConverter converter;
     private final ThreadPoolExecutor executor;
@@ -18,7 +21,13 @@ public final class AsyncImageConverter implements AutoCloseable {
         executor = new ThreadPoolExecutor(parallelism, parallelism, 0, TimeUnit.MILLISECONDS, queue,
             Thread.ofPlatform().name("glimt-encode-", 0).daemon(true).factory(), new ThreadPoolExecutor.AbortPolicy());
     }
-    /** Snapshots admitted input. Limits include queued and currently executing input copies. */
+    /**
+     * Admits a conversion and snapshots its input before returning.
+     * Limits include queued and currently executing input copies.
+     *
+     * @param input compressed image bytes
+     * @return a future completed with the converted AVIF, or exceptionally when rejected or conversion fails
+     */
     public CompletableFuture<ConvertedImage> convert(byte[] input) {
         Objects.requireNonNull(input, "input");
         if (input.length < 1 || input.length > converter.limits().maxInputBytes()) return CompletableFuture.failedFuture(new ImageException("Invalid input size"));
@@ -51,6 +60,10 @@ public final class AsyncImageConverter implements AutoCloseable {
         }
         return future;
     }
+    /**
+     * Reports current input-memory pressure.
+     * @return the number of input bytes retained by queued and active conversions
+     */
     public long retainedInputBytes() { return retained.get(); }
     /**
      * Stops admission and waits for all admitted work, restoring the caller's interrupt flag afterward.

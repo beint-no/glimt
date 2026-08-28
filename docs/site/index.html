@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Glimt is a modular JDK 26 image conversion library with bundled AVIF, JPEGli, JPEG, PNG, WebP, HEIC and JPEG XL codecs.">
+  <meta name="theme-color" content="#07110f">
+  <meta property="og:title" content="Glimt — native image conversion for the JVM">
+  <meta property="og:description" content="One dependency. Bundled codecs. No server setup or runtime downloads.">
+  <meta property="og:type" content="website">
+  <title>Glimt — native image conversion for the JVM</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav shell">
+    <a class="brand" href="#top" aria-label="Glimt home">
+      <span class="mark" aria-hidden="true"></span>
+      <span>glimt</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#formats">Formats</a>
+      <a href="#deployment">Deployment</a>
+      <a href="https://javadoc.io/doc/no.beint.glimt/core/latest/index.html">Javadocs</a>
+      <a class="nav-source" href="https://github.com/beint-no/glimt">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero shell">
+      <div class="hero-copy">
+        <div class="eyebrow"><span></span> JDK 26 · stable FFM · Apache-2.0</div>
+        <h1>Decode broadly.<br><em>Encode small.</em></h1>
+        <p class="lede">Native-quality AVIF and JPEG conversion that deploys like an ordinary JVM library. No CLI, package installation, JNI, or runtime download.</p>
+        <div class="actions">
+          <a class="button primary" href="#start">Start converting</a>
+          <a class="button secondary" href="https://central.sonatype.com/namespace/no.beint.glimt">Maven Central</a>
+        </div>
+        <ul class="proof" aria-label="Highlights">
+          <li><b>Bounded</b><span>input, memory, output and concurrency</span></li>
+          <li><b>Portable</b><span>macOS, glibc and musl auto-detected</span></li>
+          <li><b>Modular</b><span>ship only the codecs your product needs</span></li>
+        </ul>
+      </div>
+
+      <div class="code-card" id="start">
+        <div class="window-bar"><span></span><span></span><span></span><small>build.gradle.kts</small></div>
+        <pre><code><i>dependencies</i> {
+    implementation(<strong>"no.beint.glimt:all:0.4.1"</strong>)
+}</code></pre>
+        <div class="window-divider"></div>
+        <div class="window-bar file"><small>Images.java</small></div>
+        <pre><code><i>var</i> images = ImageConverter.builder()
+    .longestEdge(<strong>1600</strong>)
+    .quality(<strong>85</strong>)
+    .build();
+
+<i>byte</i>[] avif = images.toAvif(upload);</code></pre>
+        <div class="terminal"><span>$</span> java --enable-native-access=ALL-UNNAMED -jar app.jar</div>
+      </div>
+    </section>
+
+    <section class="platform-band" id="deployment">
+      <div class="shell platform-inner">
+        <p><strong>Bring the JAR. Nothing else.</strong> Glimt bundles verified native libraries and chooses the correct runtime automatically.</p>
+        <div class="platforms" aria-label="Supported platforms">
+          <span>macOS ARM64</span><span>Linux glibc</span><span>Linux musl</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="formats">
+      <div class="section-head">
+        <div>
+          <p class="kicker">The useful formats, built in</p>
+          <h2>One pipeline.<br>Independent codecs.</h2>
+        </div>
+        <p>Content detection, orientation, colour handling, resizing and limits are shared. Add or remove decoders without changing application code.</p>
+      </div>
+
+      <div class="format-grid">
+        <article><span class="format avif">AV</span><h3>AVIF</h3><p>libavif, libaom and dav1d. Alpha and high bit depth.</p></article>
+        <article><span class="format jpeg">JP</span><h3>JPEG + JPEGli</h3><p>Fast decoding and highly efficient standard JPEG output.</p></article>
+        <article><span class="format png">PN</span><h3>PNG + APNG</h3><p>Palette, alpha, interlace, profiles and 16-bit input.</p></article>
+        <article><span class="format webp">WP</span><h3>WebP</h3><p>Lossy, lossless, alpha and first-frame composition.</p></article>
+        <article><span class="format heic">HE</span><h3>HEIC</h3><p>Mobile uploads through libheif and replaceable libde265.</p></article>
+        <article><span class="format more">+4</span><h3>JXL and more</h3><p>JPEG XL, GIF, TIFF, BMP, PSD, ICO, TGA and PNM.</p></article>
+      </div>
+    </section>
+
+    <section class="section shell choices">
+      <div class="choice-card easy">
+        <p class="kicker">Start here</p>
+        <h2>Everything in one line</h2>
+        <p>The <code>all</code> artifact is the reliable default for services that accept user uploads. It includes every Glimt decoder and every supported platform bundle.</p>
+        <pre><code>implementation(<strong>"no.beint.glimt:all:0.4.1"</strong>)</code></pre>
+      </div>
+      <div class="choice-card small">
+        <p class="kicker">When size matters</p>
+        <h2>Build your exact bundle</h2>
+        <p>Use the AVIF or JPEGli encoder, then add only the input formats and native resize module you need.</p>
+        <pre><code>implementation(<strong>"no.beint.glimt:jpegli:0.4.1"</strong>)
+runtimeOnly(<strong>"no.beint.glimt:jpeg:0.4.1"</strong>)
+runtimeOnly(<strong>"no.beint.glimt:png:0.4.1"</strong>)
+runtimeOnly(<strong>"no.beint.glimt:resize:0.4.1"</strong>)</code></pre>
+      </div>
+    </section>
+
+    <section class="section dark-panel">
+      <div class="shell capability-grid">
+        <div class="capability-intro">
+          <p class="kicker">Designed for untrusted uploads</p>
+          <h2>Native speed with explicit boundaries.</h2>
+          <p>FFM is not a sandbox. Glimt treats limits, provenance and reproducible verification as part of the library contract.</p>
+          <a href="https://github.com/beint-no/glimt/blob/main/docs/design.md">Read the design →</a>
+        </div>
+        <div class="capabilities">
+          <article><b>01</b><div><h3>Bound every resource</h3><p>Input bytes, decoded pixels, metadata, output size, queued bytes and concurrent CPU work.</p></div></article>
+          <article><b>02</b><div><h3>Keep image semantics</h3><p>Apply orientation, retain alpha and supported colour profiles, and resize in user-visible coordinates.</p></div></article>
+          <article><b>03</b><div><h3>Verify the supply chain</h3><p>Pinned sources, checksums, sanitizer gates, clean runtimes, complete notices and no startup network access.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell final-cta">
+      <p class="kicker">Small API. Serious codecs.</p>
+      <h2>Keep image conversion inside your application.</h2>
+      <p>Skip a shared HTTP service until scale or isolation gives you a concrete reason to add one.</p>
+      <div class="actions centered">
+        <a class="button primary" href="https://github.com/beint-no/glimt#quick-start">Read the guide</a>
+        <a class="button secondary light" href="https://github.com/beint-no/glimt/blob/main/docs/benchmarks.md">See benchmarks</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span><span>glimt</span></a>
+    <p>Built by <a href="https://github.com/beint-no">Beint</a>. Apache-2.0 Java API; bundled components retain their licenses.</p>
+  </footer>
+</body>
+</html>

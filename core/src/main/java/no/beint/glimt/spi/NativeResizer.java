@@ -23,10 +23,24 @@ public final class NativeResizer {
         release = linker.downcallHandle(lookup.findOrThrow("glimt_release"), FunctionDescriptor.ofVoid(ADDRESS));
     }
 
-    /** @return the cached FFM binding for a named native resize bridge */
+    /**
+     * Loads a resize bridge.
+     * @param name resize bridge and bundled-library identifier
+     * @return the cached FFM binding for the named native resize bridge
+     */
     public static NativeResizer of(String name) { return RESIZERS.computeIfAbsent(name, NativeResizer::new); }
 
-    /** Invokes the bounded native bridge and attaches the result to the supplied arena. */
+    /**
+     * Invokes the bounded native bridge and attaches the result to the supplied arena.
+     *
+     * @param input decoded pixels
+     * @param width exact output width
+     * @param height exact output height
+     * @param filter reconstruction filter
+     * @param limits allocation limits that the result must obey
+     * @param arena lifetime for returned pixels
+     * @return resized pixels owned by the supplied arena
+     */
     public PixelImage resize(PixelImage input, int width, int height, ResizeFilter filter, DecodeLimits limits, Arena arena) {
         limits.checkDimensions(width, height, input.depth() > 8 ? 8 : 4);
         MemorySegment source = arena.allocate(328, 8), settings = arena.allocate(24, 8), result = arena.allocate(328, 8);

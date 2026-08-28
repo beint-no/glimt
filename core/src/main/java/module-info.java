@@ -1,3 +1,6 @@
+/**
+ * Glimt's immutable conversion API and service-provider interfaces.
+ */
 module no.beint.glimt {
     exports no.beint.glimt;
     exports no.beint.glimt.spi;

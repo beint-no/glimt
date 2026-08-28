@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.1
+
+* Clarify that bundled native artifacts automatically handle supported macOS,
+  glibc and musl runtimes; move platform trimming into an advanced deployment
+  guide and mark repository Dockerfiles as maintainer-only verification assets.
+* Document the executable-JAR native-access manifest, allowing classpath
+  applications to avoid a separate JVM launcher argument.
+* Preserve the glibc 2.35 build floor while testing release binaries in clean
+  Ubuntu 22.04 and Ubuntu 26.04 runtime images.
+* Add a responsive GitHub Pages product and documentation site, plus automated
+  checks for stale consumer coordinates and broken local documentation links.
+* Update GitHub Actions to their current major releases, add Dependabot coverage
+  for build tooling and Docker images, and move the sanitizer gate to Ubuntu 24.04.
+* Update the bundled dav1d AV1 decoder from 1.5.3 to 1.5.4.
+* Document the narrow sanitizer-derived native patches and why third-party
+  license texts must remain in the artifacts that redistribute those components.
+
 ## 0.4.0
 
 * Add the optional JPEGli output module with a reusable `JpegConverter`,

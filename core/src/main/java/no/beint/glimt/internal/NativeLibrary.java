@@ -19,7 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import no.beint.glimt.ImageException;
 import no.beint.glimt.spi.NativeBundle;
 
-/** Loads only explicitly selected or checksum-verified bundled libraries. */
+/**
+ * Loads only explicitly selected or checksum-verified bundled libraries.
+ * @hidden
+ */
 @SuppressWarnings("restricted") // Deliberate FFM boundary; native access is granted by the application.
 public final class NativeLibrary {
     private static final ConcurrentHashMap<String, SymbolLookup> LIBRARIES = new ConcurrentHashMap<>();

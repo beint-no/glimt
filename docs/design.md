@@ -69,6 +69,5 @@ must not treat timeout or cancellation as termination of native work.
   libraries or codec executables.
 * Native source versions, SHA-256 hashes, complete notices and reproducible build
   recipes. LGPL components remain replaceable and corresponding sources supplied.
-* Actual Maven Central publication is verified before opening the ecomtools PR.
-* Ecomtools converts before its transaction; async failures cannot produce a
-  successful response, partial attachments, or background loss of uploads.
+* Actual Maven Central publication is verified with clean consumers before a
+  release is recommended to downstream applications.

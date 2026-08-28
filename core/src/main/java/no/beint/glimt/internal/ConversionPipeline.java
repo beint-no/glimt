@@ -18,7 +18,10 @@ import no.beint.glimt.spi.ImageDecoder;
 import no.beint.glimt.spi.ImageResizer;
 import no.beint.glimt.spi.PixelImage;
 
-/** Shared decode, orientation and resize path for the public output converters. */
+/**
+ * Shared decode, orientation and resize path for the public output converters.
+ * @hidden
+ */
 public final class ConversionPipeline {
     private final DecodeLimits limits;
     private final FramePolicy framePolicy;
@@ -136,6 +139,7 @@ public final class ConversionPipeline {
 
     private record Dimensions(int width, int height) {}
 
+    /** @hidden */
     @FunctionalInterface
     public interface Encoder<T> {
         T encode(PixelImage pixels, int sourceFrames, ImageFormat sourceFormat, Arena arena);

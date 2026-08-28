@@ -28,12 +28,18 @@ Independent JPEG Group. Linux builds statically link GCC runtime components
 where needed under GPLv3 with GCC Runtime Library Exception 3.1; both texts
 are included. No x265 encoder, Ghostscript or external delegate is shipped.
 
+The top-level Apache-2.0 license covers Glimt's original source. It cannot replace
+the upstream notices, LGPL corresponding source, test-corpus license or GCC
+Runtime Library Exception required when redistributing the bundled components.
+Those files are intentionally kept only where their scope requires them and are
+not additional licenses imposed on Glimt's Java API.
+
 ## HEIC replacement
 
 libheif and libde265 are separate shared libraries beside the HEIC bridge;
 they are not statically merged into it. To use modified builds:
 
-1. Unpack the matching `heic-<platform>-0.4.0-sources.jar`.
+1. Unpack the matching `heic-<platform>-<version>-sources.jar`.
 2. Run `python3 native/build.py --platform <platform> --codecs heic`, modifying
    the included pinned upstream sources as desired before compilation.
 3. Keep the bridge and its dependencies together with the loader-relative names

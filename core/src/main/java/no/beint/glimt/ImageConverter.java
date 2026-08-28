@@ -24,16 +24,41 @@ public final class ImageConverter {
         if (encoders.size() != 1) throw new IllegalStateException("Exactly one AVIF encoder is required. Add no.beint.glimt:avif.");
         encoder = encoders.getFirst().get();
     }
-    /** @return a builder with default limits/options and {@link FramePolicy#REJECT} */
+    /**
+     * Creates a converter builder.
+     * @return a builder with default limits, options and {@link FramePolicy#REJECT}
+     */
     public static Builder builder() { return new Builder(); }
-    /** @return a reusable converter with the codecs discovered by {@link ServiceLoader} */
+    /**
+     * Creates a converter using defaults.
+     * @return a reusable converter with codecs discovered by {@link ServiceLoader}
+     */
     public static ImageConverter create() { return builder().build(); }
-    /** @return installed decoder formats; native platform availability is checked when first used */
+    /**
+     * Reports formats offered by installed decoder modules.
+     * @return immutable installed format set; native availability is checked when first used
+     */
     public Set<ImageFormat> supportedFormats() { return pipeline.supportedFormats(); }
+    /**
+     * Returns this converter's decode limits.
+     * @return configured rejection boundaries
+     */
     public DecodeLimits limits() { return pipeline.limits(); }
+    /**
+     * Returns this converter's AVIF settings.
+     * @return configured encoder options
+     */
     public AvifOptions options() { return options; }
-    /** @return configured resize constraint, or empty when source dimensions are preserved */
+    /**
+     * Returns this converter's optional resize constraint.
+     * @return configured constraint, or empty when source dimensions are preserved
+     */
     public Optional<ResizeOptions> resizeOptions() { return pipeline.resizeOptions(); }
+    /**
+     * Converts image bytes directly to AVIF bytes.
+     * @param input compressed image bytes
+     * @return a defensive copy of the encoded AVIF
+     */
     public byte[] toAvif(byte[] input) { return convert(input).bytes(); }
     /**
      * Converts one image synchronously. The caller must not mutate input during this call.
@@ -51,11 +76,25 @@ public final class ImageConverter {
             return new ConvertedImage(output, pixels.width(), pixels.height(), depth, frames, format, ImageFormat.AVIF);
         });
     }
-    /** Reads at most maxInputBytes + 1; the caller retains ownership of the stream. */
+    /**
+     * Reads and converts an image while leaving the stream open.
+     * At most {@code maxInputBytes + 1} bytes are read.
+     *
+     * @param input compressed image stream
+     * @return owned AVIF output and oriented dimensions
+     * @throws IOException when reading fails
+     */
     public ConvertedImage convert(InputStream input) throws IOException {
         Objects.requireNonNull(input, "input");
         return convert(input.readNBytes(Math.toIntExact(limits().maxInputBytes() + 1)));
     }
+    /**
+     * Reads and converts an image file.
+     *
+     * @param input source image path
+     * @return owned AVIF output and oriented dimensions
+     * @throws IOException when reading fails
+     */
     public ConvertedImage convert(Path input) throws IOException {
         try (InputStream stream = Files.newInputStream(input)) { return convert(stream); }
     }
@@ -99,17 +138,59 @@ public final class ImageConverter {
         private FramePolicy framePolicy = FramePolicy.REJECT;
         private ResizeOptions resizeOptions;
         private Builder() {}
+        /**
+         * Sets all AVIF options.
+         * @param value encoder options
+         * @return this builder
+         */
         public Builder options(AvifOptions value) { options = Objects.requireNonNull(value); return this; }
+        /**
+         * Sets AVIF colour quality.
+         * @param value quality from 0 through 100
+         * @return this builder
+         */
         public Builder quality(int value) { options = options.withQuality(value); return this; }
+        /**
+         * Sets AVIF compression effort.
+         * @param value effort from 0 through 10
+         * @return this builder
+         */
         public Builder effort(int value) { options = options.withEffort(value); return this; }
+        /**
+         * Sets decode rejection boundaries.
+         * @param value decode limits
+         * @return this builder
+         */
         public Builder limits(DecodeLimits value) { limits = Objects.requireNonNull(value); return this; }
+        /**
+         * Sets the multi-frame policy.
+         * @param value frame policy
+         * @return this builder
+         */
         public Builder frames(FramePolicy value) { framePolicy = Objects.requireNonNull(value); return this; }
-        /** Applies an aspect-preserving constraint after orientation and before encoding. */
+        /**
+         * Applies an aspect-preserving constraint after orientation and before encoding.
+         * @param value resize constraint
+         * @return this builder
+         */
         public Builder resize(ResizeOptions value) { resizeOptions = Objects.requireNonNull(value); return this; }
-        /** Convenience for {@code resize(ResizeOptions.fitWithin(maxWidth, maxHeight))}. */
+        /**
+         * Fits output inside width and height bounds.
+         * @param maxWidth maximum output width
+         * @param maxHeight maximum output height
+         * @return this builder
+         */
         public Builder fitWithin(int maxWidth, int maxHeight) { return resize(ResizeOptions.fitWithin(maxWidth, maxHeight)); }
-        /** Convenience for {@code resize(ResizeOptions.longestEdge(maximum))}. */
+        /**
+         * Constrains the longest output edge.
+         * @param maximum maximum width and height
+         * @return this builder
+         */
         public Builder longestEdge(int maximum) { return resize(ResizeOptions.longestEdge(maximum)); }
+        /**
+         * Builds an immutable converter.
+         * @return configured reusable converter
+         */
         public ImageConverter build() { return new ImageConverter(this); }
     }
 }

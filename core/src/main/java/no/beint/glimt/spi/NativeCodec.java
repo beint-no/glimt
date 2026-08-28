@@ -8,7 +8,10 @@ import no.beint.glimt.*;
 import no.beint.glimt.internal.NativeLibrary;
 import static java.lang.foreign.ValueLayout.*;
 
-/** Shared FFM adapter for Glimt's versioned native codec ABI. */
+/**
+ * Shared FFM adapter for Glimt's versioned native codec ABI.
+ * Intended for codec service-provider modules rather than application code.
+ */
 @SuppressWarnings("restricted") // All native pointers are bounded and scoped at this ABI boundary.
 public final class NativeCodec {
     private static final ConcurrentHashMap<String, NativeCodec> CODECS = new ConcurrentHashMap<>();
@@ -28,10 +31,35 @@ public final class NativeCodec {
         encode = lookup.find("glimt_encode").map(symbol -> linker.downcallHandle(symbol, FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS))).orElse(null);
         release = linker.downcallHandle(lookup.findOrThrow("glimt_release"), FunctionDescriptor.ofVoid(ADDRESS));
     }
+    /**
+     * Loads and caches a native codec bridge.
+     *
+     * @param name codec and bundled-library identifier
+     * @return the process-wide binding
+     */
     public static NativeCodec of(String name) { return CODECS.computeIfAbsent(name, NativeCodec::new); }
+    /**
+     * Decodes compressed input without a decode-time resize hint.
+     *
+     * @param input compressed input
+     * @param limits rejection boundaries
+     * @param frames multi-frame policy
+     * @param arena conversion lifetime
+     * @return decoded pixels owned by the supplied arena
+     */
     public PixelImage decode(MemorySegment input, DecodeLimits limits, FramePolicy frames, Arena arena) {
         return decode(input, limits, frames, DecodeTarget.NONE, arena);
     }
+    /**
+     * Decodes compressed input with an optional coarse resize hint.
+     *
+     * @param input compressed input
+     * @param limits rejection boundaries
+     * @param frames multi-frame policy
+     * @param target optional coarse decode dimensions
+     * @param arena conversion lifetime
+     * @return decoded pixels owned by the supplied arena
+     */
     public PixelImage decode(MemorySegment input, DecodeLimits limits, FramePolicy frames, DecodeTarget target, Arena arena) {
         if (decode == null) throw new ImageException("Codec cannot decode images");
         Objects.requireNonNull(target, "target");
@@ -70,6 +98,14 @@ public final class NativeCodec {
             if (!iccOwned && icc.address() != 0) free(icc);
         }
     }
+    /**
+     * Encodes pixels as AVIF through the native bridge.
+     *
+     * @param input decoded pixels
+     * @param options validated AVIF options
+     * @param arena conversion lifetime
+     * @return encoded AVIF bytes
+     */
     public byte[] encode(PixelImage input, AvifOptions options, Arena arena) {
         if (encode == null) throw new ImageException("Codec cannot encode AVIF");
         MemorySegment settings = arena.allocate(40, 8);
@@ -79,6 +115,14 @@ public final class NativeCodec {
         settings.set(JAVA_INT, 24, options.lossless() ? 1 : 0); settings.set(JAVA_LONG, 32, options.maxOutputBytes());
         return encode(input, settings, options.maxOutputBytes(), "AVIF", arena);
     }
+    /**
+     * Encodes pixels as JPEG through the native bridge.
+     *
+     * @param input decoded pixels
+     * @param options validated JPEG options
+     * @param arena conversion lifetime
+     * @return encoded JPEG bytes
+     */
     public byte[] encode(PixelImage input, JpegOptions options, Arena arena) {
         if (encode == null) throw new ImageException("Codec cannot encode JPEG");
         MemorySegment settings = arena.allocate(40, 8);

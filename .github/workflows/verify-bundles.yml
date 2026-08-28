@@ -22,21 +22,21 @@ jobs:
         include:
           - runner: macos-15
             platform: macos-arm64
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.04
             platform: linux-x64-glibc
           - runner: ubuntu-24.04
             platform: linux-x64-musl
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         if: matrix.platform != 'linux-x64-musl'
         with:
           distribution: temurin
           java-version: '26'
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
         if: matrix.platform != 'linux-x64-musl'
       - name: Verify glibc detection with a second libc installed
         if: matrix.platform == 'linux-x64-glibc'
@@ -65,10 +65,15 @@ jobs:
         run: |
           ./gradlew build
           python3 tools/runtime-smoke.py --platform '${{ matrix.platform }}'
+      - name: Test supported glibc runtime range
+        if: matrix.platform == 'linux-x64-glibc'
+        run: |
+          docker build --build-arg RUNTIME_IMAGE=ubuntu:22.04 -f native/Dockerfile.glibc-smoke .
+          docker build --build-arg RUNTIME_IMAGE=ubuntu:26.04 -f native/Dockerfile.glibc-smoke .
       - name: Test musl Java code and clean runtime
         if: matrix.platform == 'linux-x64-musl'
         run: docker build -f tools/Dockerfile.bundles-musl .
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always() && matrix.platform != 'linux-x64-musl'
         with:
           name: final-test-results-${{ matrix.platform }}

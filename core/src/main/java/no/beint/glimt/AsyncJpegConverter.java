@@ -28,7 +28,13 @@ public final class AsyncJpegConverter implements AutoCloseable {
             Thread.ofPlatform().name("glimt-jpeg-", 0).daemon(true).factory(), new ThreadPoolExecutor.AbortPolicy());
     }
 
-    /** Snapshots admitted input. Limits include queued and currently executing input copies. */
+    /**
+     * Admits a conversion and snapshots its input before returning.
+     * Limits include queued and currently executing input copies.
+     *
+     * @param input compressed image bytes
+     * @return a future completed with the converted JPEG, or exceptionally when rejected or conversion fails
+     */
     public CompletableFuture<ConvertedImage> convert(byte[] input) {
         Objects.requireNonNull(input, "input");
         if (input.length < 1 || input.length > converter.limits().maxInputBytes()) {
@@ -67,8 +73,16 @@ public final class AsyncJpegConverter implements AutoCloseable {
         return future;
     }
 
+    /**
+     * Reports current input-memory pressure.
+     * @return the number of input bytes retained by queued and active conversions
+     */
     public long retainedInputBytes() { return retained.get(); }
 
+    /**
+     * Stops admission and waits for all admitted work, restoring the caller's interrupt flag afterward.
+     * Active native calls cannot be interrupted safely. Do not close from this executor's own callback.
+     */
     @Override
     public void close() {
         executor.shutdown();

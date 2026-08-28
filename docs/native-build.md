@@ -4,6 +4,10 @@ Install JDK 26, Python 3.12+, C/C++ compilers, CMake, Ninja, pkg-config, Make,
 Meson 1.10.0, patch, and NASM on x86-64. Linux needs patchelf and Perl. macOS uses the
 Command Line Tools for install-name editing and ad hoc signing.
 
+These instructions and the repository Dockerfiles are for Glimt maintainers.
+Applications consuming Glimt do not compile codecs, use these images, or install
+native build packages.
+
 ```sh
 python3 -m venv native/.work/tools
 native/.work/tools/bin/pip install meson==1.10.0
@@ -16,6 +20,11 @@ Use `--platform linux-x64-glibc` or `linux-x64-musl` on the corresponding host.
 These are native builds, not cross-compilation switches. Select codecs using
 `--codecs avif,jpeg,jpegli,png`. Build `png` before `extra`. macOS defaults to ARM64,
 normal Linux builds to glibc.
+
+The glibc release build intentionally uses Ubuntu 22.04 as its ABI floor. Clean
+runtime tests cover both Ubuntu 22.04 and the current Ubuntu 26.04 production
+generation. Moving the build itself to Ubuntu 26.04 would unnecessarily raise
+the minimum supported glibc version.
 
 `native/sources.json` pins versions/checksums. GitHub archives use SHA-256 of the
 archive. Gitiles archives have changing timestamps, so those entries additionally

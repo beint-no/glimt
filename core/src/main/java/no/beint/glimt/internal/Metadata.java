@@ -4,7 +4,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import no.beint.glimt.*;
 
-/** Bounded metadata inspection; never follows external references. */
+/**
+ * Bounded metadata inspection; never follows external references.
+ * @hidden
+ */
 public record Metadata(int orientation, int frames, int width, int height) {
     public static Metadata read(byte[] input, ImageFormat format, DecodeLimits limits) {
         int orientation = 1, frames = 1, width = 0, height = 0;

@@ -4,6 +4,7 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import no.beint.glimt.spi.PixelImage;
 
+/** @hidden */
 public final class Orientation {
     private Orientation() {}
     public static PixelImage apply(PixelImage source, Arena arena) {

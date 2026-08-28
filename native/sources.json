@@ -85,9 +85,9 @@
     "tree_sha256": "67ab62752d0f6af2306602833ffa9f7c096ce79b724ab2b792caf0c12ec0ef1e"
   },
   "dav1d": {
-    "version": "1.5.3",
-    "url": "https://github.com/videolan/dav1d/archive/refs/tags/1.5.3.tar.gz",
-    "sha256": "cbe212b02faf8c6eed5b6d55ef8a6e363aaab83f15112e960701a9c3df813686",
+    "version": "1.5.4",
+    "url": "https://github.com/videolan/dav1d/archive/refs/tags/1.5.4.tar.gz",
+    "sha256": "a1d5b63d2d38ec9bd03acf643caa51fa22edd1e89c5a109c4807717216bbec07",
     "strip": true
   },
   "brotli": {

@@ -1,3 +1,4 @@
+# Maintainer release-bundle test; consumers do not need this Dockerfile.
 FROM bellsoft/hardened-liberica-runtime-container:jdk-all-26-musl@sha256:24e8cda3f1142c4f9f74ab1c8af703925d2ad9eea5fdedf1b7ac56be448c95e7 AS jdk
 RUN cp -a "$JAVA_HOME" /jdk-copy
 

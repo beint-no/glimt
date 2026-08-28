@@ -39,15 +39,15 @@ jobs:
             platform: linux-x64-glibc
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '26'
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       - name: Linux build prerequisites
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build nasm pkg-config patchelf patch
@@ -61,15 +61,17 @@ jobs:
         run: ./gradlew build
       - name: Verify minimal classpath and JPMS runtime
         run: python tools/runtime-smoke.py --platform '${{ matrix.platform }}'
-      - name: Clean glibc container
+      - name: Clean glibc compatibility and production-generation containers
         if: runner.os == 'Linux'
-        run: docker build -f native/Dockerfile.glibc-smoke .
-      - uses: actions/upload-artifact@v6
+        run: |
+          docker build --build-arg RUNTIME_IMAGE=ubuntu:22.04 -f native/Dockerfile.glibc-smoke .
+          docker build --build-arg RUNTIME_IMAGE=ubuntu:26.04 -f native/Dockerfile.glibc-smoke .
+      - uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.platform }}
           path: native/dist/${{ matrix.platform }}
           if-no-files-found: error
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ matrix.platform }}
@@ -78,7 +80,7 @@ jobs:
     if: inputs.native_run == ''
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build and test musl codecs with JDK 26
         run: |
           docker build -f native/Dockerfile.musl --target tested -t glimt-musl-test .
@@ -87,30 +89,30 @@ jobs:
           mkdir -p native/dist
           docker cp "$container:/work/native/dist/linux-x64-musl" native/dist/
           docker rm "$container"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: native-linux-x64-musl
           path: native/dist/linux-x64-musl
           if-no-files-found: error
   sanitizer:
     if: inputs.native_run == ''
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build nasm pkg-config patchelf clang patch
       - run: python -m pip install meson==1.10.0
       - name: Restore instrumented dependency build cache
         id: sanitizer-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: native/.work
-          key: sanitizer-ubuntu22-clang14-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}
+          key: sanitizer-ubuntu24-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}
           restore-keys: |
-            sanitizer-ubuntu22-clang14-${{ hashFiles('native/sources.json', 'native/build.py') }}-
+            sanitizer-ubuntu24-${{ hashFiles('native/sources.json', 'native/build.py') }}-
             ${{ inputs.sanitizer_cache }}
       - name: Preflight sanitizer toolchain
         env:
@@ -130,7 +132,7 @@ jobs:
         run: python native/sanitize.py
       - name: Preserve instrumented build for diagnosis
         if: always() && steps.instrumented-codecs.outcome == 'success' && steps.sanitizer-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: native/.work
-          key: sanitizer-ubuntu22-clang14-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}
+          key: sanitizer-ubuntu24-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}

@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      java-tooling:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /native
+    schedule:
+      interval: weekly
+    groups:
+      native-build-images:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /tools
+    schedule:
+      interval: weekly
+    groups:
+      verification-images:
+        patterns: ["*"]

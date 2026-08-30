@@ -2,9 +2,48 @@ import com.vanniktech.maven.publish.JavaLibrary
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.SourcesJar
+import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.attributes.Bundling
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.Usage
+import org.gradle.api.attributes.java.TargetJvmVersion
+import org.gradle.api.component.AdhocComponentWithVariants
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.TaskAction
+
+abstract class VerifyPlatformVariants : DefaultTask() {
+    @get:Classpath abstract val defaultClasspath: ConfigurableFileCollection
+    @get:Classpath abstract val explicitDefaultClasspath: ConfigurableFileCollection
+    @get:Classpath abstract val macosClasspath: ConfigurableFileCollection
+    @get:Classpath abstract val portableClasspath: ConfigurableFileCollection
+    @get:Classpath abstract val allGlibcClasspath: ConfigurableFileCollection
+
+    @TaskAction
+    fun verify() {
+        fun ConfigurableFileCollection.names(): Set<String> = files.mapTo(mutableSetOf(), File::getName)
+        fun Set<String>.nativePlatforms(module: String): Set<String> = mapNotNullTo(mutableSetOf()) { filename ->
+            Regex("^$module-(macos-arm64|linux-x64-glibc|linux-x64-musl)-").find(filename)?.groupValues?.get(1)
+        }
+
+        check(defaultClasspath.names().nativePlatforms("jpegli") == setOf("linux-x64-musl"))
+        check(explicitDefaultClasspath.names().nativePlatforms("jpegli") == setOf("linux-x64-musl"))
+        check(macosClasspath.names().nativePlatforms("jpegli") == setOf("macos-arm64"))
+        check(portableClasspath.names().nativePlatforms("jpegli") ==
+            setOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl"))
+
+        val glibcNames = allGlibcClasspath.names()
+        for (codec in listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")) {
+            check(glibcNames.nativePlatforms(codec) == setOf("linux-x64-glibc"))
+        }
+    }
+}
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.4.1" }
+allprojects { group = "no.beint.glimt"; version = "0.5.0" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
     description = "Checks documentation links and consumer coordinates against the release version."
@@ -13,6 +52,17 @@ val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
 
 val codecs = listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")
 val platforms = listOf("macos-arm64", "linux-x64-glibc", "linux-x64-musl")
+val defaultPlatform = "linux-x64-musl"
+val selectablePlatforms = platforms.filterNot(defaultPlatform::equals) + "portable"
+val buildPlatform = providers.gradleProperty("glimt.platform").orElse(provider {
+    when {
+        System.getProperty("os.name").startsWith("Mac") -> "macos-arm64"
+        file("/lib/ld-musl-x86_64.so.1").exists() -> "linux-x64-musl"
+        else -> "linux-x64-glibc"
+    }
+}).get()
+check(buildPlatform in platforms) { "Unsupported Glimt build platform: $buildPlatform" }
+extra["glimtPlatform"] = buildPlatform
 val nativeSources = mapOf(
     "avif" to listOf("avif", "aom", "dav1d", "yuv"),
     "jpeg" to listOf("jpeg", "lcms"), "png" to listOf("png", "zlib", "lcms"),
@@ -53,11 +103,109 @@ subprojects {
     if (name != "core" && name != "tests" && name != "benchmarks" && name !in codecs.flatMap { codec -> platforms.map { "$codec-$it" } }) {
         dependencies.add("api", dependencies.project(mapOf("path" to ":core")))
     }
+    fun Configuration.configureJavaVariant(usage: String, capability: String) {
+        isCanBeConsumed = true
+        isCanBeResolved = false
+        attributes {
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 26)
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(usage))
+        }
+        outgoing.artifact(tasks.named("jar"))
+        outgoing.capability(capability)
+    }
+    fun publishVariant(apiElements: Configuration, runtimeElements: Configuration) {
+        val javaComponent = components.getByName("java") as AdhocComponentWithVariants
+        javaComponent.addVariantsFromConfiguration(apiElements) {
+            mapToMavenScope("compile")
+            mapToOptional()
+        }
+        javaComponent.addVariantsFromConfiguration(runtimeElements) {
+            mapToMavenScope("runtime")
+            mapToOptional()
+        }
+    }
+    fun ProjectDependency.requirePlatform(module: String, platform: String) {
+        capabilities { requireCapability("${project.group}:$module-platform-$platform") }
+    }
     if (name in codecs) {
-        for (platform in platforms) dependencies.add("runtimeOnly", dependencies.project(mapOf("path" to ":$name-$platform")))
+        dependencies.add("runtimeOnly", dependencies.project(mapOf("path" to ":$name-$defaultPlatform")))
+        for (elements in listOf("apiElements", "runtimeElements")) {
+            configurations.named(elements) {
+                outgoing.capability("$group:${project.name}:$version")
+                outgoing.capability("$group:${project.name}-platform-$defaultPlatform:$version")
+            }
+        }
+        for (platform in selectablePlatforms) {
+            val variant = platform.split('-').mapIndexed { index, word ->
+                if (index == 0) word else word.replaceFirstChar(Char::uppercase)
+            }.joinToString("")
+            val apiDependencies = configurations.create("${variant}ApiDependencies") {
+                isCanBeConsumed = false
+                isCanBeResolved = false
+            }
+            dependencies.add(apiDependencies.name, dependencies.project(mapOf("path" to ":core")))
+            val runtimeDependencies = configurations.create("${variant}RuntimeDependencies") {
+                isCanBeConsumed = false
+                isCanBeResolved = false
+                extendsFrom(apiDependencies)
+            }
+            val nativePlatforms = if (platform == "portable") platforms else listOf(platform)
+            for (nativePlatform in nativePlatforms) {
+                dependencies.add(
+                    runtimeDependencies.name,
+                    dependencies.project(mapOf("path" to ":$name-$nativePlatform")),
+                )
+            }
+            val capability = "$group:$name-platform-$platform:$version"
+            val apiElements = configurations.create("${variant}ApiElements") {
+                extendsFrom(apiDependencies)
+                configureJavaVariant(Usage.JAVA_API, capability)
+            }
+            val runtimeElements = configurations.create("${variant}RuntimeElements") {
+                extendsFrom(runtimeDependencies)
+                configureJavaVariant(Usage.JAVA_RUNTIME, capability)
+            }
+            publishVariant(apiElements, runtimeElements)
+        }
     }
     if (name == "all") {
         for (module in codecs + "jdk-imageio") dependencies.add("api", dependencies.project(mapOf("path" to ":$module")))
+        for (elements in listOf("apiElements", "runtimeElements")) {
+            configurations.named(elements) {
+                outgoing.capability("$group:${project.name}:$version")
+                outgoing.capability("$group:${project.name}-platform-$defaultPlatform:$version")
+            }
+        }
+        for (platform in selectablePlatforms) {
+            val variant = platform.split('-').mapIndexed { index, word ->
+                if (index == 0) word else word.replaceFirstChar(Char::uppercase)
+            }.joinToString("")
+            val dependencyBucket = configurations.create("${variant}Dependencies") {
+                isCanBeConsumed = false
+                isCanBeResolved = false
+            }
+            for (module in listOf("core", "jdk-imageio")) {
+                dependencies.add(dependencyBucket.name, dependencies.project(mapOf("path" to ":$module")))
+            }
+            for (module in codecs) {
+                val dependency = dependencies.project(mapOf("path" to ":$module")) as ProjectDependency
+                dependency.requirePlatform(module, platform)
+                dependencies.add(dependencyBucket.name, dependency)
+            }
+            val capability = "$group:$name-platform-$platform:$version"
+            val apiElements = configurations.create("${variant}ApiElements") {
+                extendsFrom(dependencyBucket)
+                configureJavaVariant(Usage.JAVA_API, capability)
+            }
+            val runtimeElements = configurations.create("${variant}RuntimeElements") {
+                extendsFrom(dependencyBucket)
+                configureJavaVariant(Usage.JAVA_RUNTIME, capability)
+            }
+            publishVariant(apiElements, runtimeElements)
+        }
     }
     val codec = codecs.firstOrNull { name.startsWith("$it-") }
     if (codec != null) {
@@ -112,6 +260,20 @@ subprojects {
     }
     if (name != "tests" && name != "benchmarks") {
         apply(plugin = "com.vanniktech.maven.publish")
+        if (name in codecs || name == "all") {
+            extensions.configure<PublishingExtension> {
+                publications.withType<MavenPublication>().configureEach {
+                    for (variant in listOf("apiElements", "runtimeElements") + selectablePlatforms.flatMap { platform ->
+                        val name = platform.split('-').mapIndexed { index, word ->
+                            if (index == 0) word else word.replaceFirstChar(Char::uppercase)
+                        }.joinToString("")
+                        listOf("${name}ApiElements", "${name}RuntimeElements")
+                    }) {
+                        suppressPomMetadataWarningsFor(variant)
+                    }
+                }
+            }
+        }
         extensions.configure<MavenPublishBaseExtension>("mavenPublishing") {
             publishToMavenCentral()
             signAllPublications()
@@ -177,4 +339,52 @@ subprojects {
             dependsOn(verifyNativeRelease)
         }
     }
+}
+
+fun platformVerificationConfiguration(
+    configurationName: String,
+    module: String,
+    platform: String? = null,
+): Configuration = configurations.create(configurationName) {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    attributes {
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+        attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 26)
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+    }
+    val dependency = project.dependencies.project(mapOf("path" to ":$module")) as ProjectDependency
+    if (platform != null) {
+        dependency.capabilities { requireCapability("$group:$module-platform-$platform") }
+    }
+    project.dependencies.add(name, dependency)
+}
+
+val platformVerifications = mapOf(
+    "default" to platformVerificationConfiguration("verifyDefaultPlatform", "jpegli"),
+    "linux-x64-musl" to platformVerificationConfiguration(
+        "verifyExplicitDefaultPlatform",
+        "jpegli",
+        "linux-x64-musl",
+    ),
+    "macos-arm64" to platformVerificationConfiguration("verifyMacosPlatform", "jpegli", "macos-arm64"),
+    "portable" to platformVerificationConfiguration("verifyPortablePlatform", "jpegli", "portable"),
+    "all-linux-x64-glibc" to platformVerificationConfiguration(
+        "verifyAllLinuxGlibcPlatform",
+        "all",
+        "linux-x64-glibc",
+    ),
+)
+val verifyPlatformVariants = tasks.register<VerifyPlatformVariants>("verifyPlatformVariants") {
+    description = "Checks that Glimt resolves only the default or explicitly selected native platforms."
+    defaultClasspath.from(platformVerifications.getValue("default"))
+    explicitDefaultClasspath.from(platformVerifications.getValue("linux-x64-musl"))
+    macosClasspath.from(platformVerifications.getValue("macos-arm64"))
+    portableClasspath.from(platformVerifications.getValue("portable"))
+    allGlibcClasspath.from(platformVerifications.getValue("all-linux-x64-glibc"))
+}
+subprojects {
+    tasks.named("check") { dependsOn(verifyPlatformVariants) }
 }

@@ -1,5 +1,9 @@
+val glimtPlatform = rootProject.extra["glimtPlatform"] as String
+
 dependencies {
-    implementation(project(":all"))
+    implementation(project(":all")) {
+        capabilities { requireCapability("no.beint.glimt:all-platform-$glimtPlatform") }
+    }
     implementation("org.openjdk.jmh:jmh-core:1.37")
     annotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
 }

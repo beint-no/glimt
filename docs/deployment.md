@@ -3,13 +3,13 @@
 ## Normal applications
 
 Add a Glimt codec or `all`, enable native access, and deploy the application as
-usual. Codec modules depend on their macOS ARM64, Linux x64 glibc and Linux x64
-musl resource JARs. At runtime Glimt selects the bundle matching the JVM process,
-extracts it to a private checksum-verified directory and loads it through FFM.
+usual. Codec modules include the Linux x64 musl resource JAR used by ReAI's
+production image by default. Glimt extracts the matching bundle to a private
+checksum-verified directory and loads it through FFM.
 
-Consumers do not install libavif, JPEGli, ImageMagick or command-line tools. They
-do not select glibc or musl, set a native library path, copy Glimt's Dockerfiles,
-or download code at startup. Only this JVM option is required on the classpath:
+Consumers do not install libavif, JPEGli, ImageMagick or command-line tools, set
+a native library path, copy Glimt's Dockerfiles, or download code at startup.
+Only this JVM option is required on the classpath:
 
 ```text
 --enable-native-access=ALL-UNNAMED
@@ -58,24 +58,42 @@ container mounts `/tmp` with `noexec`:
 Glimt creates a new mode-0700 process directory beneath that parent and verifies
 every extracted file before loading it.
 
-## Optional platform-specific trimming
+## Selecting another platform
 
-Keeping all platform bundles makes one built application portable across local
-development and deployment. If an application deliberately produces a separate
-artifact for one platform, unused native JARs can be excluded. This is an
-advanced build-size optimization, not a compatibility requirement.
-
-For example, this Gradle configuration keeps only Linux x64 musl resources:
+The ordinary coordinates intentionally produce the ReAI deployment default:
+Linux x64 musl. A Gradle consumer targeting macOS ARM64 or Linux x64 glibc asks
+for that module's platform capability. The selected variant replaces the
+default, so there are no exclusions or filename filters:
 
 ```kotlin
-configurations.configureEach {
-    for (codec in listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")) {
-        exclude(group = "no.beint.glimt", module = "$codec-macos-arm64")
-        exclude(group = "no.beint.glimt", module = "$codec-linux-x64-glibc")
+dependencies {
+    implementation("no.beint.glimt:all:0.5.0") {
+        capabilities {
+            requireCapability("no.beint.glimt:all-platform-macos-arm64")
+        }
     }
 }
 ```
 
-Do not apply that configuration to tests running on another platform. A missing
-bundle fails with an error naming the exact artifact required for the detected
-runtime.
+Selective codec bundles use the same convention on every Glimt dependency:
+
+```kotlin
+val glimt = "0.5.0"
+dependencies {
+    implementation("no.beint.glimt:jpegli:$glimt") {
+        capabilities {
+            requireCapability("no.beint.glimt:jpegli-platform-linux-x64-glibc")
+        }
+    }
+    runtimeOnly("no.beint.glimt:jpeg:$glimt") {
+        capabilities {
+            requireCapability("no.beint.glimt:jpeg-platform-linux-x64-glibc")
+        }
+    }
+}
+```
+
+Use `macos-arm64`, `linux-x64-glibc`, or `linux-x64-musl` in the capability name.
+Choose `portable` to include all published platforms in one artifact, for example
+`no.beint.glimt:all-platform-portable`. A missing bundle fails with an error
+naming the exact artifact required for the detected runtime.

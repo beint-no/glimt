@@ -14,7 +14,7 @@ image utilities, subprocesses in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.4.1")
+    implementation("no.beint.glimt:all:0.5.0")
 }
 ```
 
@@ -27,11 +27,11 @@ byte[] avif = images.toAvif(inputBytes);
 images.convert(Path.of("photo.heic"), Path.of("photo.avif"));
 ```
 
-That dependency already contains the native libraries for supported macOS,
-glibc Linux and musl Linux runtimes. Glimt detects the running platform. There
-is no `apt install`, Alpine package, Dockerfile fragment, native path, or libc
-choice in application code. The same application artifact can be built on a
-developer Mac and deployed to Linux.
+That zero-configuration dependency contains the Linux x64 musl native bundles
+used by ReAI's production image. There is no `apt install`, Alpine package,
+Dockerfile fragment, native path or runtime download. Applications targeting
+macOS ARM64, Linux x64 glibc or multiple platforms select that bundle explicitly;
+see the [deployment guide](docs/deployment.md).
 
 Constrain uploads before AVIF encoding with the optional native resize module
 (`all` already includes it):
@@ -89,7 +89,7 @@ limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.4.1"
+val glimt = "0.5.0"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -104,7 +104,7 @@ For JPEG output instead of AVIF, replace the `avif` encoder with `jpegli` while
 keeping only the input decoders and optional resize module you need:
 
 ```kotlin
-val glimt = "0.4.1"
+val glimt = "0.5.0"
 dependencies {
     implementation("no.beint.glimt:jpegli:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -113,11 +113,10 @@ dependencies {
 }
 ```
 
-This excludes JPEG XL, ImageMagick and `java.desktop`. Codec modules bring the
-native bundles for every supported platform by default. Most applications
-should keep those small compressed resources and never think about deployment
-libc. Applications that build a platform-specific artifact can trim unused
-platform resources as an explicit size optimization; see the
+This excludes JPEG XL, ImageMagick and `java.desktop`. Each codec brings only
+its Linux x64 musl native bundle by default. Other deployment targets and a
+portable all-platform artifact are explicit Gradle variants, so consumers list
+what they produce rather than exclude Glimt internals; see the
 [deployment guide](docs/deployment.md).
 
 Use the same version for every Glimt artifact. ServiceLoader discovers codecs

@@ -38,7 +38,7 @@
         </div>
         <ul class="proof" aria-label="Highlights">
           <li><b>Bounded</b><span>input, memory, output and concurrency</span></li>
-          <li><b>Portable</b><span>macOS, glibc and musl auto-detected</span></li>
+          <li><b>Targeted</b><span>musl by default; other platforms explicit</span></li>
           <li><b>Modular</b><span>ship only the codecs your product needs</span></li>
         </ul>
       </div>
@@ -46,7 +46,7 @@
       <div class="code-card" id="start">
         <div class="window-bar"><span></span><span></span><span></span><small>build.gradle.kts</small></div>
         <pre><code><i>dependencies</i> {
-    implementation(<strong>"no.beint.glimt:all:0.4.1"</strong>)
+    implementation(<strong>"no.beint.glimt:all:0.5.0"</strong>)
 }</code></pre>
         <div class="window-divider"></div>
         <div class="window-bar file"><small>Images.java</small></div>
@@ -62,7 +62,7 @@
 
     <section class="platform-band" id="deployment">
       <div class="shell platform-inner">
-        <p><strong>Bring the JAR. Nothing else.</strong> Glimt bundles verified native libraries and chooses the correct runtime automatically.</p>
+        <p><strong>Bring the JAR. Nothing else.</strong> Glimt defaults to ReAI's musl runtime; select macOS, glibc or a portable bundle explicitly.</p>
         <div class="platforms" aria-label="Supported platforms">
           <span>macOS ARM64</span><span>Linux glibc</span><span>Linux musl</span>
         </div>
@@ -92,17 +92,17 @@
       <div class="choice-card easy">
         <p class="kicker">Start here</p>
         <h2>Everything in one line</h2>
-        <p>The <code>all</code> artifact is the reliable default for services that accept user uploads. It includes every Glimt decoder and every supported platform bundle.</p>
-        <pre><code>implementation(<strong>"no.beint.glimt:all:0.4.1"</strong>)</code></pre>
+        <p>The <code>all</code> artifact is the reliable default for services that accept user uploads. It includes every Glimt decoder and ReAI's Linux musl native bundles.</p>
+        <pre><code>implementation(<strong>"no.beint.glimt:all:0.5.0"</strong>)</code></pre>
       </div>
       <div class="choice-card small">
         <p class="kicker">When size matters</p>
         <h2>Build your exact bundle</h2>
         <p>Use the AVIF or JPEGli encoder, then add only the input formats and native resize module you need.</p>
-        <pre><code>implementation(<strong>"no.beint.glimt:jpegli:0.4.1"</strong>)
-runtimeOnly(<strong>"no.beint.glimt:jpeg:0.4.1"</strong>)
-runtimeOnly(<strong>"no.beint.glimt:png:0.4.1"</strong>)
-runtimeOnly(<strong>"no.beint.glimt:resize:0.4.1"</strong>)</code></pre>
+        <pre><code>implementation(<strong>"no.beint.glimt:jpegli:0.5.0"</strong>)
+runtimeOnly(<strong>"no.beint.glimt:jpeg:0.5.0"</strong>)
+runtimeOnly(<strong>"no.beint.glimt:png:0.5.0"</strong>)
+runtimeOnly(<strong>"no.beint.glimt:resize:0.5.0"</strong>)</code></pre>
       </div>
     </section>
 

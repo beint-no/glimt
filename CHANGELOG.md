@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+* Make Linux x64 musl, ReAI's production runtime, the zero-configuration native
+  bundle for every codec instead of shipping all supported platforms by default.
+* Publish explicit Gradle variants for macOS ARM64, Linux x64 glibc and portable
+  all-platform artifacts, replacing consumer-side exclusions and JAR-name filters.
+* Verify default, platform-specific and portable dependency graphs and run Glimt's
+  own tests against the native variant selected for the build host.
+
 ## 0.4.1
 
 * Clarify that bundled native artifacts automatically handle supported macOS,

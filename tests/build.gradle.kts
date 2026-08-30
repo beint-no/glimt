@@ -1,5 +1,9 @@
+val glimtPlatform = rootProject.extra["glimtPlatform"] as String
+
 dependencies {
-    testImplementation(project(":all"))
+    testImplementation(project(":all")) {
+        capabilities { requireCapability("no.beint.glimt:all-platform-$glimtPlatform") }
+    }
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
 }

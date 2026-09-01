@@ -1,6 +1,6 @@
 # Maintainer build and compatibility test; consumers do not need this
 # Dockerfile or any Alpine packages to use Glimt.
-FROM bellsoft/hardened-liberica-runtime-container:jdk-all-26-musl@sha256:24e8cda3f1142c4f9f74ab1c8af703925d2ad9eea5fdedf1b7ac56be448c95e7 AS jdk
+FROM bellsoft/hardened-liberica-runtime-container:jdk-all-26-musl AS jdk
 RUN cp -a "$JAVA_HOME" /jdk-copy
 
 FROM alpine:3.23 AS tested
@@ -15,7 +15,7 @@ RUN ./gradlew build --no-daemon
 RUN python3 tools/runtime-smoke.py --platform linux-x64-musl --prepare-only
 RUN jlink --add-modules java.base --no-header-files --no-man-pages --output /smoke-runtime
 
-FROM bellsoft/hardened-base:musl@sha256:2b8a721a48aa56595255325c2b091dcd89d95357a460b28bdc2fb0d8e4a83cc2 AS clean-runtime
+FROM bellsoft/hardened-base:musl AS clean-runtime
 COPY --from=tested /smoke-runtime /opt/java
 COPY --from=tested /work/build/runtime-smoke/lib /smoke/lib
 COPY --from=tested /work/build/runtime-smoke/corpus /smoke/corpus

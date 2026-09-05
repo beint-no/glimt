@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1
+
+* Skip cancelled or otherwise completed queued JPEG/AVIF conversions before
+  decoding, releasing their input reservation when dequeued.
+* Speed up EXIF transforms with whole-pixel copies, bulk vertical flips and
+  tiled rotations, preserving samples, alpha, metadata and padded-row support.
+* Avoid repeated source verification and Little CMS builds within one native
+  build, stream canonical source hashes, and remove discarded sanitizer compiles.
+* Add cancellation, orientation and source-hash regression tests, orientation
+  benchmarks and a performance audit with raw before/after measurements.
+* Select the downloaded platform explicitly when testing reused native bundles,
+  including glibc hosts that also have a musl loader installed.
+
 ## 0.5.0
 
 * Make Linux x64 musl, ReAI's production runtime, the zero-configuration native

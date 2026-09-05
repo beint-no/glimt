@@ -41,6 +41,12 @@ public final class AsyncImageConverter implements AutoCloseable {
         try {
             byte[] snapshot = input.clone();
             executor.execute(() -> {
+                // Cancellation or a timeout can finish a future while it waits
+                // in the queue. Active native work still runs to completion.
+                if (future.isDone()) {
+                    retained.addAndGet(-size);
+                    return;
+                }
                 ConvertedImage converted;
                 try {
                     converted = converter.convert(snapshot);

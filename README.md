@@ -14,7 +14,7 @@ image utilities, subprocesses in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.5.0")
+    implementation("no.beint.glimt:all:0.5.1")
 }
 ```
 
@@ -89,7 +89,7 @@ limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.5.0"
+val glimt = "0.5.1"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -104,7 +104,7 @@ For JPEG output instead of AVIF, replace the `avif` encoder with `jpegli` while
 keeping only the input decoders and optional resize module you need:
 
 ```kotlin
-val glimt = "0.5.0"
+val glimt = "0.5.1"
 dependencies {
     implementation("no.beint.glimt:jpegli:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -214,8 +214,9 @@ without retaining a carrier thread for the wait.
 
 `close()` stops admission and waits for admitted work, restoring the caller's
 interrupt flag afterward without discarding queued futures. Do not call it from a
-completion callback on its own worker. Cancelled queued work is skipped when
-dequeued; cancellation/timeouts cannot terminate an active native codec. There
+completion callback on its own worker. Queued work whose future has already been
+cancelled or completed (including a timeout) is skipped when dequeued; its input
+reservation is released then. Cancellation/timeouts cannot terminate an active native codec. There
 is no hard wall-clock termination guarantee.
 
 ## Limits and deployment

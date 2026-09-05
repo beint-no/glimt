@@ -3,10 +3,13 @@
 import hashlib
 import json
 from pathlib import Path
-import tarfile
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'native'))
+from source_hash import tree_hash
+
 LOCK = json.loads((ROOT / 'native/sources.json').read_text())
 CODECS = {'avif': ['avif', 'aom', 'dav1d', 'yuv'], 'jpeg': ['jpeg', 'lcms'],
           'jpegli': ['jpegli', 'jpegli-highway', 'jpegli-libjpeg', 'lcms'],
@@ -16,12 +19,7 @@ CODECS = {'avif': ['avif', 'aom', 'dav1d', 'yuv'], 'jpeg': ['jpeg', 'lcms'],
 for name in sorted({name for sources in CODECS.values() for name in sources}):
     spec = LOCK[name]; archive = ROOT / 'native/.work/archives' / (name + '.tar.gz')
     if 'tree_sha256' in spec:
-        entries = []
-        with tarfile.open(archive) as tar:
-            for item in sorted(tar.getmembers(), key=lambda entry: entry.name):
-                digest = hashlib.sha256(tar.extractfile(item).read()).hexdigest() if item.isfile() else None
-                entries.append([item.name, item.type.decode('ascii'), item.mode, item.linkname, digest])
-        actual = hashlib.sha256(json.dumps(entries, separators=(',', ':')).encode()).hexdigest()
+        actual = tree_hash(archive)
         expected = spec['tree_sha256']
     else: actual = hashlib.sha256(archive.read_bytes()).hexdigest(); expected = spec['sha256']
     if actual != expected: raise RuntimeError('Corresponding source checksum mismatch: ' + name)

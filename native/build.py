@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build Glimt's native codecs from pinned source. No host codec is used."""
 import argparse
+from functools import cache
 import hashlib
 import json
 import os
@@ -12,6 +13,7 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
+from source_hash import tree_hash
 
 ROOT = Path(__file__).resolve().parent
 LOCK = json.loads((ROOT / 'sources.json').read_text())
@@ -43,18 +45,6 @@ def run(command, cwd=None):
     print('+', ' '.join(map(str, command)), flush=True)
     subprocess.run(list(map(str, command)), cwd=cwd, env=ENV, check=True)
 
-def tree_hash(archive):
-    # Gitiles generates tar headers with the request time. Authenticate every
-    # member's path, kind, mode, target and contents, excluding only timestamps.
-    entries = []
-    with tarfile.open(archive) as tar:
-        for item in sorted(tar.getmembers(), key=lambda entry: entry.name):
-            if not (item.isfile() or item.isdir() or item.issym() or item.islnk()):
-                raise RuntimeError('Unexpected source archive member')
-            digest = hashlib.sha256(tar.extractfile(item).read()).hexdigest() if item.isfile() else None
-            entries.append([item.name, item.type.decode('ascii'), item.mode, item.linkname, digest])
-    return hashlib.sha256(json.dumps(entries, separators=(',', ':')).encode()).hexdigest()
-
 def download(url, target, attempts=4):
     request = urllib.request.Request(url, headers={'User-Agent': 'glimt-native-build'})
     for attempt in range(1, attempts + 1):
@@ -73,6 +63,7 @@ def download(url, target, attempts=4):
             print(f'Download failed ({error}); retrying in {delay}s [{attempt}/{attempts}]', flush=True)
             time.sleep(delay)
 
+@cache  # Verify each source and its patches once per build invocation.
 def source(name):
     spec = LOCK[name]
     archive = WORK / 'archives' / (name + '.tar.gz')
@@ -118,6 +109,7 @@ def cmake(name, options=()):
     run(['cmake', '--build', BUILD / name, '--parallel', args.jobs])
     run(['cmake', '--install', BUILD / name])
 
+@cache  # Several codecs share the exact same Little CMS build and install.
 def meson(name, options=()):
     src = source(name)
     command = ['meson', 'setup', BUILD / name, src, '--prefix=' + str(PREFIX), '--libdir=lib',
@@ -159,18 +151,15 @@ def bridge(codec, libraries, shared=(), cflags=()):
     source_file = ROOT / 'src' / (codec + ('.cc' if cpp else '.c'))
     compiler = ENV.get('CXX', 'c++') if cpp else ENV.get('CC', 'cc')
     standard = '-std=c++17' if cpp else '-std=c11'
-    run([compiler, standard, '-O3', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
+    instrumentation = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
+    optimization = ['-O1', '-g', *instrumentation] if args.sanitize else ['-O3']
+    run([compiler, standard, *optimization, '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
          '-I' + str(PREFIX / 'include'), *cflags, '-c', source_file, '-o', obj])
     suffix = 'dylib' if platform.system() == 'Darwin' else 'so'
     output = target / ('libglimt_' + codec + '.' + suffix)
     flags = ['-dynamiclib', '-Wl,-install_name,@loader_path/' + output.name] if suffix == 'dylib' else [
         '-shared', '-Wl,-z,relro,-z,now', '-Wl,--exclude-libs,ALL', '-static-libstdc++', '-static-libgcc', '-Wl,-rpath,$ORIGIN']
     if suffix == 'so': libraries = ['-Wl,--start-group', *libraries, '-Wl,--end-group']
-    instrumentation = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
-    if instrumentation:
-        # Compile the ABI bridge itself with the same instrumentation as codecs.
-        run([compiler, standard, '-O1', '-g', '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
-             *instrumentation, '-I' + str(PREFIX / 'include'), *cflags, '-c', source_file, '-o', obj])
     run([ENV.get('CXX', 'c++'), *flags, *instrumentation, '-o', output, obj, *libraries, '-lm', '-pthread'])
     for name in shared:
         candidates = list((PREFIX / 'lib').glob(name + '*.' + suffix + '*'))
@@ -220,7 +209,7 @@ for codec in args.codecs.split(','):
         notices(codec, ['avif', 'aom', 'dav1d', 'yuv'])
     elif codec == 'jpeg':
         cmake('jpeg', ['-DENABLE_SHARED=OFF', '-DWITH_TOOLS=OFF', '-DWITH_TESTS=OFF'])
-        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
         bridge(codec, [PREFIX / 'lib/libturbojpeg.a', PREFIX / 'lib/liblcms2.a'])
         notices(codec, ['jpeg', 'lcms'])
     elif codec == 'jpegli':
@@ -231,7 +220,7 @@ for codec in args.codecs.split(','):
             if not link.is_symlink():
                 if link.exists(): shutil.rmtree(link)
                 link.symlink_to(dependency, target_is_directory=True)
-        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
         jpegli_build = BUILD / 'jpegli'
         run(['cmake', '-S', jpegli, '-B', jpegli_build, '-G', 'Ninja',
              '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
@@ -254,7 +243,7 @@ for codec in args.codecs.split(','):
         cmake('zlib', ['-DZLIB_BUILD_TESTING=OFF', '-DZLIB_BUILD_SHARED=OFF', '-DZLIB_BUILD_STATIC=ON'])
         cmake('png', ['-DPNG_SHARED=OFF', '-DPNG_STATIC=ON', '-DPNG_TESTS=OFF', '-DPNG_TOOLS=OFF',
                       '-DZLIB_LIBRARY=' + str(PREFIX / 'lib/libz.a'), '-DZLIB_INCLUDE_DIR=' + str(PREFIX / 'include')])
-        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
         bridge(codec, [PREFIX / 'lib/libpng16.a', PREFIX / 'lib/libz.a', PREFIX / 'lib/liblcms2.a'])
         notices(codec, ['png', 'zlib', 'lcms'])
     elif codec == 'webp':
@@ -281,7 +270,7 @@ for codec in args.codecs.split(','):
             if not link.is_symlink():
                 if link.exists(): shutil.rmtree(link)
                 link.symlink_to(dependency, target_is_directory=True)
-        meson('lcms', ['-Dtests=disabled', '-Dutils=false'])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
         cmake('jxl', ['-DJPEGXL_ENABLE_' + name + '=OFF' for name in
                      ('TOOLS', 'DEVTOOLS', 'DOXYGEN', 'MANPAGES', 'BENCHMARK', 'EXAMPLES', 'JNI', 'SJPEG',
                       'OPENEXR', 'SKCMS', 'VIEWERS', 'TCMALLOC', 'PLUGINS', 'TRANSCODE_JPEG', 'FUZZERS')] +

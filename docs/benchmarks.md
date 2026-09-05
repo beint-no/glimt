@@ -18,11 +18,16 @@ The suite contains:
   to 1600-edge and 800-edge AVIF.
 * `JpegDecodeBenchmark`: full and target-aware libjpeg-turbo decoding of that photograph.
 * `OrientationResizeBenchmark`: an A/B measurement of orientation before and after resizing.
+* `OrientationBenchmark`: 12-megapixel EXIF flips and rotation at 8/16-bit depth,
+  including padded source rows.
 * `ResizeBenchmark`: opaque and alpha RGBA resize kernels plus an AWT bicubic reference.
 * `AvifEncodingBenchmark`: YUV420/YUV444 and one, two, or four encoder threads.
 * `JpegliConversionBenchmark`: a real 12-megapixel upload at qualities 70/80/90,
   preserving source dimensions or bounding the longest edge to 2400 pixels.
 * `ConcurrentConversionBenchmark`: one and four simultaneous thumbnail conversions.
+
+The [September 2026 performance audit](performance-audit-2026-09.md) records the
+latest orientation measurements, build findings and queue cancellation fix.
 
 ## 0.4.0 JPEGli measurements
 

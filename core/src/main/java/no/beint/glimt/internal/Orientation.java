@@ -3,6 +3,8 @@ package no.beint.glimt.internal;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import no.beint.glimt.spi.PixelImage;
+import static java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED;
+import static java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED;
 
 /** @hidden */
 public final class Orientation {
@@ -15,20 +17,46 @@ public final class Orientation {
         int pixelSize = source.depth() > 8 ? 8 : 4;
         long stride = (long) width * pixelSize;
         MemorySegment target = arena.allocate(stride * height, pixelSize);
-        for (int y = 0; y < source.height(); y++) for (int x = 0; x < source.width(); x++) {
-            int dx, dy;
-            switch (orientation) {
-                case 2 -> { dx = source.width() - 1 - x; dy = y; }
-                case 3 -> { dx = source.width() - 1 - x; dy = source.height() - 1 - y; }
-                case 4 -> { dx = x; dy = source.height() - 1 - y; }
-                case 5 -> { dx = y; dy = x; }
-                case 6 -> { dx = source.height() - 1 - y; dy = x; }
-                case 7 -> { dx = source.height() - 1 - y; dy = source.width() - 1 - x; }
-                case 8 -> { dx = y; dy = source.width() - 1 - x; }
-                default -> throw new IllegalArgumentException("Invalid orientation");
+        MemorySegment pixels = source.pixels();
+        long lastRow = (source.height() - 1L) * source.stride();
+        long lastPixel = (source.width() - 1L) * pixelSize;
+        long start, stepX, stepY;
+        // Traverse destination rows in order. Resolve the coordinate transform
+        // once, then copy whole RGBA pixels without a bulk-copy call per pixel.
+        switch (orientation) {
+            case 2 -> { start = lastPixel; stepX = -pixelSize; stepY = source.stride(); }
+            case 3 -> { start = lastRow + lastPixel; stepX = -pixelSize; stepY = -source.stride(); }
+            case 4 -> { start = lastRow; stepX = pixelSize; stepY = -source.stride(); }
+            case 5 -> { start = 0; stepX = source.stride(); stepY = pixelSize; }
+            case 6 -> { start = lastRow; stepX = -source.stride(); stepY = pixelSize; }
+            case 7 -> { start = lastRow + lastPixel; stepX = -source.stride(); stepY = -pixelSize; }
+            case 8 -> { start = lastPixel; stepX = source.stride(); stepY = -pixelSize; }
+            default -> throw new IllegalArgumentException("Invalid orientation");
+        }
+        // Transposes otherwise stride through an entire image for every row.
+        // Small tiles keep both source and destination cache lines in use.
+        int tileWidth = orientation >= 5 ? 32 : width;
+        int tileHeight = orientation >= 5 ? 32 : height;
+        for (int top = 0, bottom; top < height; top = bottom) {
+            bottom = top + Math.min(tileHeight, height - top);
+            for (int left = 0, right; left < width; left = right) {
+                right = left + Math.min(tileWidth, width - left);
+                for (int y = top; y < bottom; y++) {
+                    long input = start + y * stepY + left * stepX;
+                    long output = y * stride + (long) left * pixelSize;
+                    if (orientation == 4) {
+                        MemorySegment.copy(pixels, input, target, output, stride);
+                    } else if (pixelSize == 4) {
+                        for (int x = left; x < right; x++, input += stepX, output += 4) {
+                            target.set(JAVA_INT_UNALIGNED, output, pixels.get(JAVA_INT_UNALIGNED, input));
+                        }
+                    } else {
+                        for (int x = left; x < right; x++, input += stepX, output += 8) {
+                            target.set(JAVA_LONG_UNALIGNED, output, pixels.get(JAVA_LONG_UNALIGNED, input));
+                        }
+                    }
+                }
             }
-            MemorySegment.copy(source.pixels(), (long)y * source.stride() + (long)x * pixelSize,
-                target, (long)dy * stride + (long)dx * pixelSize, pixelSize);
         }
         return new PixelImage(width, height, source.depth(), source.frames(), 1, source.primaries(), source.transfer(),
             source.hasAlpha(), stride, target, source.icc());

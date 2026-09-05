@@ -43,11 +43,15 @@ abstract class VerifyPlatformVariants : DefaultTask() {
 }
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.5.0" }
+allprojects { group = "no.beint.glimt"; version = "0.5.1" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
     description = "Checks documentation links and consumer coordinates against the release version."
     commandLine("python3", "tools/verify-docs.py", version.toString())
+}
+val verifyNativeBuildTools = tasks.register<Exec>("verifyNativeBuildTools") {
+    description = "Checks canonical native source hashing."
+    commandLine("python3", "-m", "unittest", "discover", "-s", "native", "-p", "test_*.py")
 }
 
 val codecs = listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")
@@ -94,7 +98,7 @@ subprojects {
             addStringOption("-show-packages", "exported")
         }
     }
-    tasks.named("check") { dependsOn(verifyDocumentation) }
+    tasks.named("check") { dependsOn(verifyDocumentation, verifyNativeBuildTools) }
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true
@@ -308,7 +312,8 @@ subprojects {
                 for (source in nativeSources.getValue(codec)) include("$source/**")
                 into("native/patches")
             }
-            from(listOf(rootProject.file("native/build.py"), rootProject.file("native/sources.json"))) { into("native") }
+            from(listOf(rootProject.file("native/build.py"), rootProject.file("native/source_hash.py"),
+                rootProject.file("native/sources.json"))) { into("native") }
             // LGPL corresponding source is shipped with HEIC. Other bundles
             // include the pinned build recipe, avoiding redistribution of
             // unrelated upstream test photographs under separate licenses.

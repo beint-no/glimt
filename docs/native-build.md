@@ -36,6 +36,14 @@ to a fresh source tree when changed, and included in the corresponding native
 source JAR. libheif currently has a small patch avoiding null zero-length memory
 reads and overflowing read lengths discovered during sanitizer testing.
 
+Within one build invocation, each source and its patches are verified once, and
+the shared Little CMS dependency is configured, compiled and installed once.
+Every new invocation verifies sources again; these shortcuts do not add a
+persistent cache of trust decisions. Gitiles hashes stream archive contents in
+archive order, then sort the hash records, preserving the pinned canonical hashes
+without backward seeks through gzip data. `native/source_hash.py` is included in
+native source JARs alongside the build recipe.
+
 The fixed C ABI is in `native/src/glimt.h`; `NativeCodec` owns FFM calls and
 scoped cleanup. JPMS services expose native resources without `ALL-MODULE-PATH`
 or reflective access exceptions.
@@ -66,6 +74,8 @@ This uses separate outputs and instruments codecs and bridge with ASan/UBSan.
 The standalone harness exercises valid images, truncations and deterministic
 mutations plus JPEG encoder depths, alpha, options and output caps. It is
 regression testing, not exhaustive fuzzing or a security audit.
+Sanitizer bridges are compiled directly with instrumentation instead of first
+compiling and discarding a release object.
 Release bundles strip symbol and debug tables after their loader paths are fixed;
 sanitizer outputs remain unstripped for actionable diagnostics.
 Some Apple-Clang/macOS combinations fail during sanitizer runtime startup;

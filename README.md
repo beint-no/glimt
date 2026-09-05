@@ -214,8 +214,9 @@ without retaining a carrier thread for the wait.
 
 `close()` stops admission and waits for admitted work, restoring the caller's
 interrupt flag afterward without discarding queued futures. Do not call it from a
-completion callback on its own worker. Cancelled queued work is skipped when
-dequeued; cancellation/timeouts cannot terminate an active native codec. There
+completion callback on its own worker. Queued work whose future has already been
+cancelled or completed (including a timeout) is skipped when dequeued; its input
+reservation is released then. Cancellation/timeouts cannot terminate an active native codec. There
 is no hard wall-clock termination guarantee.
 
 ## Limits and deployment

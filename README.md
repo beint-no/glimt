@@ -14,7 +14,7 @@ image utilities, subprocesses in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.5.1")
+    implementation("no.beint.glimt:all:0.5.2")
 }
 ```
 
@@ -89,7 +89,7 @@ limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.5.1"
+val glimt = "0.5.2"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -104,7 +104,7 @@ For JPEG output instead of AVIF, replace the `avif` encoder with `jpegli` while
 keeping only the input decoders and optional resize module you need:
 
 ```kotlin
-val glimt = "0.5.1"
+val glimt = "0.5.2"
 dependencies {
     implementation("no.beint.glimt:jpegli:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")

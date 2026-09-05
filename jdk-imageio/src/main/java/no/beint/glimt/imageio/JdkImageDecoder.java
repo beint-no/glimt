@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.nio.ByteOrder;
 import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -15,6 +16,7 @@ import org.w3c.dom.Node;
 
 /** Optional legacy-format reader using only JDK providers. Normalizes output to 8-bit sRGB. */
 public final class JdkImageDecoder implements ImageDecoder {
+    private static final ValueLayout.OfInt RGBA = ValueLayout.JAVA_INT.withOrder(ByteOrder.BIG_ENDIAN);
     public JdkImageDecoder() {}
     @Override public Set<ImageFormat> formats() { return Set.of(ImageFormat.GIF, ImageFormat.BMP, ImageFormat.TIFF, ImageFormat.WBMP); }
     @Override public PixelImage decode(MemorySegment input, ImageFormat format, DecodeLimits limits, FramePolicy frames, Arena arena) {
@@ -91,10 +93,7 @@ public final class JdkImageDecoder implements ImageDecoder {
         } finally { reader.dispose(); }
     }
     private static void putArgb(MemorySegment pixels, long offset, int argb) {
-        pixels.set(ValueLayout.JAVA_BYTE, offset, (byte)(argb >>> 16));
-        pixels.set(ValueLayout.JAVA_BYTE, offset + 1, (byte)(argb >>> 8));
-        pixels.set(ValueLayout.JAVA_BYTE, offset + 2, (byte)argb);
-        pixels.set(ValueLayout.JAVA_BYTE, offset + 3, (byte)(argb >>> 24));
+        pixels.set(RGBA, offset, Integer.rotateLeft(argb, 8));
     }
     private static Node find(Node node, String name) {
         if (node.getNodeName().equals(name)) return node;

@@ -43,7 +43,7 @@ abstract class VerifyPlatformVariants : DefaultTask() {
 }
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.5.1" }
+allprojects { group = "no.beint.glimt"; version = "0.5.2" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
     description = "Checks documentation links and consumer coordinates against the release version."

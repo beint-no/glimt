@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+* Pack JDK-decoded RGBA pixels into one memory store, preserving channel bytes,
+  transparency and GIF canvas offsets.
+* Add complete JDK fallback decode benchmarks and byte-level regression coverage
+  for BMP, TIFF, GIF and WBMP.
+
 ## 0.5.1
 
 * Skip cancelled or otherwise completed queued JPEG/AVIF conversions before

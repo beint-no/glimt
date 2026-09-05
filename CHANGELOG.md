@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1
 
 * Skip cancelled or otherwise completed queued JPEG/AVIF conversions before
   decoding, releasing their input reservation when dequeued.

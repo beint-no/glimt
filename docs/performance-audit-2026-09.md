@@ -142,5 +142,6 @@ Local platform: Apple M5 Max, macOS 26.6.2, OpenJDK 26.0.2.1.
 * All 27 native source JARs include the shared verification helper.
 
 Local checks cover macOS ARM64. Full Linux glibc/musl and all-codec sanitizer
-verification remain the standard CI gate before a release. This audit does not
-publish a new artifact or change a consumer's deployed Glimt version.
+verification remain the standard CI gate before a release. Glimt 0.5.1 carries
+these changes; release verification and consumer adoption are separate from
+the kernel measurements above.

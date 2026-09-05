@@ -10,6 +10,8 @@
   build, stream canonical source hashes, and remove discarded sanitizer compiles.
 * Add cancellation, orientation and source-hash regression tests, orientation
   benchmarks and a performance audit with raw before/after measurements.
+* Select the downloaded platform explicitly when testing reused native bundles,
+  including glibc hosts that also have a musl loader installed.
 
 ## 0.5.0
 

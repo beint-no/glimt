@@ -73,7 +73,7 @@ jobs:
       - name: Test current Java code against release binaries
         if: matrix.platform != 'linux-x64-musl'
         run: |
-          ./gradlew build
+          ./gradlew build -Pglimt.platform='${{ matrix.platform }}'
           python3 tools/runtime-smoke.py --platform '${{ matrix.platform }}'
       - name: Test supported glibc runtime range
         if: matrix.platform == 'linux-x64-glibc'

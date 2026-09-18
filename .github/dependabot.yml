@@ -22,7 +22,6 @@ updates:
       native-build-images:
         patterns: ["*"]
     ignore:
-      - dependency-name: "bellsoft/hardened-liberica-runtime-container"
       - dependency-name: "bellsoft/hardened-base"
   - package-ecosystem: docker
     directory: /tools
@@ -32,5 +31,4 @@ updates:
       verification-images:
         patterns: ["*"]
     ignore:
-      - dependency-name: "bellsoft/hardened-liberica-runtime-container"
       - dependency-name: "bellsoft/hardened-base"

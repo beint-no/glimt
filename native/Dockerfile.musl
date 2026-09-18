@@ -1,7 +1,7 @@
 # Maintainer build and compatibility test; consumers do not need this
 # Dockerfile or any Alpine packages to use Glimt.
-FROM bellsoft/hardened-liberica-runtime-container:jdk-all-26-musl AS jdk
-RUN cp -a "$JAVA_HOME" /jdk-copy
+FROM amazoncorretto:27-alpine-jdk AS jdk
+RUN cp -a "$(readlink -f "$JAVA_HOME")" /jdk-copy
 
 FROM alpine:3.23 AS tested
 RUN apk add --no-cache build-base cmake ninja nasm python3 py3-pip pkgconf patchelf patch git perl linux-headers fontconfig freetype

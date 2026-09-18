@@ -82,11 +82,11 @@ val verifyNativeRelease = tasks.register<Exec>("verifyNativeRelease") {
 subprojects {
     apply(plugin = "java-library")
     extensions.configure<JavaPluginExtension> {
-        toolchain.languageVersion.set(JavaLanguageVersion.of(26))
+        toolchain.languageVersion.set(JavaLanguageVersion.of(27))
         modularity.inferModulePath.set(true)
     }
     tasks.withType<JavaCompile>().configureEach {
-        options.release.set(26)
+        options.release.set(27)
         options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
     }
     tasks.withType<Javadoc>().configureEach {
@@ -113,7 +113,7 @@ subprojects {
         attributes {
             attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
             attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
-            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 26)
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 27)
             attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(usage))
         }
@@ -284,7 +284,7 @@ subprojects {
             configure(JavaLibrary(javadocJar = JavadocJar.Javadoc(), sourcesJar = SourcesJar.Sources()))
             pom {
                 name.set("Glimt ${project.name}")
-                description.set("Modular JDK 26 image conversion with bundled native codecs and no third-party Java runtime dependencies.")
+                description.set("Modular JDK 27 image conversion with bundled native codecs and no third-party Java runtime dependencies.")
                 inceptionYear.set("2026")
                 url.set("https://github.com/beint-no/glimt")
                 licenses {
@@ -356,7 +356,7 @@ fun platformVerificationConfiguration(
     attributes {
         attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
         attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
-        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 26)
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 27)
         attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
         attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
     }

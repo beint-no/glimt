@@ -1,6 +1,6 @@
 # Native builds and releases
 
-Install JDK 26, Python 3.12+, C/C++ compilers, CMake, Ninja, pkg-config, Make,
+Install JDK 27, Python 3.12+, C/C++ compilers, CMake, Ninja, pkg-config, Make,
 Meson 1.10.0, patch, and NASM on x86-64. Linux needs patchelf and Perl. macOS uses the
 Command Line Tools for install-name editing and ad hoc signing.
 

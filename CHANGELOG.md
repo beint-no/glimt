@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+* Build with a JDK 27 toolchain and publish `--release 27` artifacts; consumers need JDK 27.
+* Publish releases from the tag-triggered GitHub workflow.
+
 ## 0.5.2
 
 * Pack JDK-decoded RGBA pixels into one memory store, preserving channel bytes,

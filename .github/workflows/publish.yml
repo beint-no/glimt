@@ -1,0 +1,69 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: maven-central-publish
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: '27'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Check release version
+        run: |
+          version="$(./gradlew -q printReleaseVersion)"
+          tag_version="${GITHUB_REF_NAME#v}"
+          [[ "$tag_version" == "$version" ]] || {
+            echo "Tag version $tag_version does not match Gradle version $version" >&2
+            exit 1
+          }
+          [[ "$version" != *-SNAPSHOT ]] || exit 1
+          echo "Publishing version $version"
+      - name: Wait for the Verify run of the tagged commit
+        id: verify-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 90); do
+            run="$(gh run list --workflow verify.yml --commit "$GITHUB_SHA" --event push --json databaseId,status,conclusion --jq '.[0]')"
+            status="$(jq -r '.status // empty' <<<"$run")"
+            if [[ "$status" == "completed" ]]; then
+              [[ "$(jq -r .conclusion <<<"$run")" == "success" ]] || { echo "Verify failed for $GITHUB_SHA" >&2; exit 1; }
+              echo "run_id=$(jq -r .databaseId <<<"$run")" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Verify run for $GITHUB_SHA is ${status:-not started}; waiting"
+            sleep 60
+          done
+          echo "Timed out waiting for the Verify run of $GITHUB_SHA" >&2
+          exit 1
+      - name: Fetch corresponding sources
+        run: python3 native/build.py --fetch-sources
+      - name: Collect verified native bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/collect-native-release.py "${{ steps.verify-run.outputs.run_id }}"
+      - name: Build and publish
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_IN_MEMORY_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+        run: ./gradlew build publishAndReleaseToMavenCentral

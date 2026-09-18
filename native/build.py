@@ -22,6 +22,7 @@ parser.add_argument('--platform', default='macos-arm64' if platform.system() == 
 parser.add_argument('--codecs', default='avif,jpeg,jpegli,png,webp,heic,jxl,extra,resize')
 parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 2))
 parser.add_argument('--sanitize', action='store_true', help='Build instrumented codecs in a separate output tree')
+parser.add_argument('--fetch-sources', action='store_true', help='Download and verify every pinned source archive, then stop')
 args = parser.parse_args()
 WORK = ROOT / '.work'
 flavor = args.platform + ('-sanitized' if args.sanitize else '')
@@ -189,6 +190,10 @@ def bridge(codec, libraries, shared=(), cflags=()):
     manifest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(target.iterdir())
                 if p.is_file() and (p.name.endswith('.dylib') or '.so' in p.name)}
     (target / 'manifest.properties').write_text(''.join(name + '=' + digest + '\n' for name, digest in manifest.items()))
+
+if args.fetch_sources:
+    for name in LOCK: source(name)
+    raise SystemExit(0)
 
 for codec in args.codecs.split(','):
     print('BUILDING CODEC', codec, flush=True)

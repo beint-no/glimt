@@ -97,9 +97,13 @@ Photograph licenses and provenance are included with the corpus.
    corresponding source JARs. Other source JARs include the pinned recipe.
 4. Run `python3 tools/verify-release.py`, `./gradlew build` and runtime smoke tests.
 5. Inspect artifacts/POMs/notices; merge the release PR, update main and tag.
-6. Run `./gradlew publishAndReleaseToMavenCentral` with Gradle properties
+6. Pushing a `v*` tag runs `.github/workflows/publish.yml`, which waits for the
+   Verify run of the tagged commit, collects its native bundles with
+   `tools/collect-native-release.py`, fetches the corresponding sources and runs
+   `publishAndReleaseToMavenCentral` with the repository's Maven Central and
+   signing secrets. The same steps work locally with the Gradle properties
    `mavenCentralUsername`, `mavenCentralPassword`, `signingInMemoryKey` and
-   `signingInMemoryKeyPassword` securely supplied through the environment.
+   `signingInMemoryKeyPassword` supplied through the environment.
 7. Fetch actual published artifacts from Central into a clean consumer and
    repeat conversion tests. An accepted upload is not proof of publication.
 

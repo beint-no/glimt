@@ -10,14 +10,20 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     out->width = WebPDemuxGetI(demux, WEBP_FF_CANVAS_WIDTH);
     out->height = WebPDemuxGetI(demux, WEBP_FF_CANVAS_HEIGHT);
     out->frames = WebPDemuxGetI(demux, WEBP_FF_FRAME_COUNT);
-    out->alpha = (WebPDemuxGetI(demux, WEBP_FF_FORMAT_FLAGS) & ALPHA_FLAG) != 0;
+    const uint32_t flags = WebPDemuxGetI(demux, WEBP_FF_FORMAT_FLAGS);
+    out->alpha = (flags & ALPHA_FLAG) != 0;
     int failed = glimt_frames(out, limits) || glimt_allocate(out, limits);
     WebPChunkIterator chunk;
     if (!failed && WebPDemuxGetChunk(demux, "ICCP", 1, &chunk)) {
         failed = glimt_icc(out, chunk.chunk.bytes, chunk.chunk.size, limits);
         WebPDemuxReleaseChunkIterator(&chunk);
     }
-    if (!failed) {
+    if (!failed && !(flags & ANIMATION_FLAG)) {
+        /* A still image decodes directly into the ABI buffer; the animation
+         * decoder would compose a private canvas and copy it. */
+        if (out->stride > INT_MAX || !WebPDecodeRGBAInto(data, (size_t)size, out->pixels, (size_t)out->size, (int)out->stride))
+            failed = glimt_fail(out, "Cannot decode WebP pixels");
+    } else if (!failed) {
         WebPAnimDecoderOptions options;
         WebPAnimDecoderOptionsInit(&options); options.color_mode = MODE_RGBA; options.use_threads = 0;
         WebPAnimDecoder *decoder = WebPAnimDecoderNew(&input, &options);

@@ -2,7 +2,13 @@
   "avif": {
     "version": "1.4.2",
     "url": "https://github.com/AOMediaCodec/libavif/archive/refs/tags/v1.4.2.tar.gz",
-    "sha256": "2b645287340ba5a631d268b551dc2d72bd73ac33335962dd36dcdb6d8366921d"
+    "sha256": "2b645287340ba5a631d268b551dc2d72bd73ac33335962dd36dcdb6d8366921d",
+    "patches": [
+      {
+        "file": "avif/0001-libyuv-full-range-yuv444.patch",
+        "sha256": "8f79619b07737dac0432d10b53fccd7e4b79a7a45c42aef4a5dae61f0f6453c8"
+      }
+    ]
   },
   "jpeg": {
     "version": "3.2.0",

@@ -1,0 +1,436 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.OrientationBenchmark.orient",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Xms1g",
+            "-Xmx1g"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "depth" : "8",
+            "orientation" : "2"
+        },
+        "primaryMetric" : {
+            "score" : 5.398871724538553,
+            "scoreError" : 0.02145610508030953,
+            "scoreConfidence" : [
+                5.377415619458244,
+                5.420327829618863
+            ],
+            "scorePercentiles" : {
+                "0.0" : 5.376089796791444,
+                "50.0" : 5.400792416867921,
+                "90.0" : 5.418660778494624,
+                "95.0" : 5.419558247311828,
+                "99.0" : 5.419558247311828,
+                "99.9" : 5.419558247311828,
+                "99.99" : 5.419558247311828,
+                "99.999" : 5.419558247311828,
+                "99.9999" : 5.419558247311828,
+                "100.0" : 5.419558247311828
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    5.388460575268817,
+                    5.409824150537634,
+                    5.404571908602151,
+                    5.390894037634409,
+                    5.376089796791444
+                ],
+                [
+                    5.410583559139785,
+                    5.382031636363636,
+                    5.39701292513369,
+                    5.409690408602151,
+                    5.419558247311828
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.OrientationBenchmark.orient",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Xms1g",
+            "-Xmx1g"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "depth" : "8",
+            "orientation" : "4"
+        },
+        "primaryMetric" : {
+            "score" : 2.2445216785423043,
+            "scoreError" : 0.03406861964529414,
+            "scoreConfidence" : [
+                2.21045305889701,
+                2.2785902981875985
+            ],
+            "scorePercentiles" : {
+                "0.0" : 2.2153033465783665,
+                "50.0" : 2.245937546875,
+                "90.0" : 2.276488490001026,
+                "95.0" : 2.277677840909091,
+                "99.0" : 2.277677840909091,
+                "99.9" : 2.277677840909091,
+                "99.99" : 2.277677840909091,
+                "99.999" : 2.277677840909091,
+                "99.9999" : 2.277677840909091,
+                "100.0" : 2.277677840909091
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    2.2619774774774775,
+                    2.217764441501104,
+                    2.2291663902439023,
+                    2.2153033465783665,
+                    2.221751196467991
+                ],
+                [
+                    2.2481616450892856,
+                    2.263916666666667,
+                    2.277677840909091,
+                    2.2657843318284425,
+                    2.2437134486607144
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.OrientationBenchmark.orient",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Xms1g",
+            "-Xmx1g"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "depth" : "8",
+            "orientation" : "6"
+        },
+        "primaryMetric" : {
+            "score" : 7.716333646035798,
+            "scoreError" : 1.1640848189438657,
+            "scoreConfidence" : [
+                6.552248827091932,
+                8.880418464979664
+            ],
+            "scorePercentiles" : {
+                "0.0" : 6.863367911564626,
+                "50.0" : 7.389655180147059,
+                "90.0" : 9.13867292944056,
+                "95.0" : 9.197062118181819,
+                "99.0" : 9.197062118181819,
+                "99.9" : 9.197062118181819,
+                "99.99" : 9.197062118181819,
+                "99.999" : 9.197062118181819,
+                "99.9999" : 9.197062118181819,
+                "100.0" : 9.197062118181819
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    7.006543111111111,
+                    6.863367911564626,
+                    9.197062118181819,
+                    7.395266852941177,
+                    8.613170230769231
+                ],
+                [
+                    7.6316928636363635,
+                    7.345779503649635,
+                    7.384043507352941,
+                    7.268923561151079,
+                    8.4574868
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.OrientationBenchmark.orient",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Xms1g",
+            "-Xmx1g"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "depth" : "16",
+            "orientation" : "2"
+        },
+        "primaryMetric" : {
+            "score" : 6.4249345139038025,
+            "scoreError" : 0.8440321947078206,
+            "scoreConfidence" : [
+                5.580902319195982,
+                7.268966708611623
+            ],
+            "scorePercentiles" : {
+                "0.0" : 5.800779695402299,
+                "50.0" : 6.286685483132814,
+                "90.0" : 7.660466052459446,
+                "95.0" : 7.747525961538462,
+                "99.0" : 7.747525961538462,
+                "99.9" : 7.747525961538462,
+                "99.99" : 7.747525961538462,
+                "99.999" : 7.747525961538462,
+                "99.9999" : 7.747525961538462,
+                "100.0" : 7.747525961538462
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    6.190643259259259,
+                    5.800779695402299,
+                    6.078190265060241,
+                    6.034681137724551,
+                    6.102132575757576
+                ],
+                [
+                    6.592858660130719,
+                    6.876926870748299,
+                    6.382727707006369,
+                    7.747525961538462,
+                    6.442879006410257
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.OrientationBenchmark.orient",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Xms1g",
+            "-Xmx1g"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "depth" : "16",
+            "orientation" : "4"
+        },
+        "primaryMetric" : {
+            "score" : 4.4018134721458715,
+            "scoreError" : 0.7140893865497484,
+            "scoreConfidence" : [
+                3.6877240855961233,
+                5.11590285869562
+            ],
+            "scorePercentiles" : {
+                "0.0" : 4.092884487804878,
+                "50.0" : 4.248612489978903,
+                "90.0" : 5.567358909743863,
+                "95.0" : 5.68692772881356,
+                "99.0" : 5.68692772881356,
+                "99.9" : 5.68692772881356,
+                "99.99" : 5.68692772881356,
+                "99.999" : 5.68692772881356,
+                "99.9999" : 5.68692772881356,
+                "100.0" : 5.68692772881356
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    4.234696729957806,
+                    4.26252825,
+                    4.309206905982906,
+                    4.132949761316873,
+                    4.151196280991735
+                ],
+                [
+                    5.68692772881356,
+                    4.4912395381165915,
+                    4.488017486607143,
+                    4.092884487804878,
+                    4.16848755186722
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.OrientationBenchmark.orient",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 2,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Xms1g",
+            "-Xmx1g"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "depth" : "16",
+            "orientation" : "6"
+        },
+        "primaryMetric" : {
+            "score" : 12.523514585667655,
+            "scoreError" : 3.276747957017226,
+            "scoreConfidence" : [
+                9.246766628650429,
+                15.800262542684882
+            ],
+            "scorePercentiles" : {
+                "0.0" : 10.025849831683168,
+                "50.0" : 12.171143601190476,
+                "90.0" : 16.6887682346875,
+                "95.0" : 16.796059033333332,
+                "99.0" : 16.796059033333332,
+                "99.9" : 16.796059033333332,
+                "99.99" : 16.796059033333332,
+                "99.999" : 16.796059033333332,
+                "99.9999" : 16.796059033333332,
+                "100.0" : 16.796059033333332
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    12.292063,
+                    12.422155864197531,
+                    12.813400316455697,
+                    12.050224202380953,
+                    11.620322793103448
+                ],
+                [
+                    16.796059033333332,
+                    15.723151046875,
+                    10.886668010752688,
+                    10.025849831683168,
+                    10.605251757894736
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

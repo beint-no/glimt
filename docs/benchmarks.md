@@ -28,6 +28,8 @@ The suite contains:
 
 The [September 2026 performance audit](performance-audit-2026-09.md) records the
 latest orientation measurements, build findings and queue cancellation fix.
+The [third pass](performance-third-pass-2026-09.md) covers the libavif colour
+conversion patch, uninitialized orientation buffers and in-place WebP decoding.
 
 ## 0.4.0 JPEGli measurements
 

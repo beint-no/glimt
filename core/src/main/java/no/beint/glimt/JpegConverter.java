@@ -61,9 +61,9 @@ public final class JpegConverter {
     /**
      * Converts image bytes directly to JPEG bytes.
      * @param input compressed image bytes
-     * @return a defensive copy of the encoded JPEG
+     * @return the encoded JPEG, owned by the caller
      */
-    public byte[] toJpeg(byte[] input) { return convert(input).bytes(); }
+    public byte[] toJpeg(byte[] input) { return convert(input).encodedBytes(); }
 
     /**
      * Converts one image synchronously. The caller must not mutate input during this call.

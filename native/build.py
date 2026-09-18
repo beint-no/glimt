@@ -213,7 +213,7 @@ for codec in args.codecs.split(','):
         bridge(codec, archives)
         notices(codec, ['avif', 'aom', 'dav1d', 'yuv'])
     elif codec == 'jpeg':
-        cmake('jpeg', ['-DENABLE_SHARED=OFF', '-DWITH_TOOLS=OFF', '-DWITH_TESTS=OFF'])
+        cmake('jpeg', ['-DENABLE_SHARED=OFF', '-DWITH_TOOLS=OFF', '-DWITH_TESTS=OFF', '-DREQUIRE_SIMD=ON'])
         meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
         bridge(codec, [PREFIX / 'lib/libturbojpeg.a', PREFIX / 'lib/liblcms2.a'])
         notices(codec, ['jpeg', 'lcms'])

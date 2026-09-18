@@ -57,9 +57,9 @@ public final class ImageConverter {
     /**
      * Converts image bytes directly to AVIF bytes.
      * @param input compressed image bytes
-     * @return a defensive copy of the encoded AVIF
+     * @return the encoded AVIF, owned by the caller
      */
-    public byte[] toAvif(byte[] input) { return convert(input).bytes(); }
+    public byte[] toAvif(byte[] input) { return convert(input).encodedBytes(); }
     /**
      * Converts one image synchronously. The caller must not mutate input during this call.
      * Native work runs on the calling thread; use {@link #async} to bound CPU concurrency.

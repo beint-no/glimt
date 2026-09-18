@@ -28,7 +28,7 @@ jobs:
           ref: ${{ inputs.revision }}
       - uses: actions/setup-java@v6
         with:
-          distribution: liberica
+          distribution: corretto
           java-version: '27'
       - uses: actions/setup-python@v7
         with:

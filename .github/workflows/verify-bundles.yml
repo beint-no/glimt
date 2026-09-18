@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-java@v6
         if: matrix.platform != 'linux-x64-musl'
         with:
-          distribution: liberica
+          distribution: corretto
           java-version: '27'
       - uses: gradle/actions/setup-gradle@v6
         if: matrix.platform != 'linux-x64-musl'

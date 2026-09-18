@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.4
+
+* Route 8-bit full-range RGBA to 4:4:4 AVIF colour conversion through libyuv
+  with a pinned libavif patch; about 8.5 ms less per 1.92-megapixel encode.
+* Orient pixels into uninitialized native memory instead of a zero-filled arena
+  buffer; EXIF flips and rotations take 14–41% less time.
+* Decode still WebP images directly into the pixel buffer, skip the PNG buffer
+  clear for non-interlaced images and return `toAvif`/`toJpeg` output without a
+  second copy.
+* Require libjpeg-turbo SIMD at native configure time and document the third
+  performance pass with raw measurements.
+
 ## 0.5.3
 
 * Build with a JDK 27 toolchain and publish `--release 27` artifacts; consumers need JDK 27.

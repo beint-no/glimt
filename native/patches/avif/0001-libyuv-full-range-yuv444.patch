@@ -1,0 +1,24 @@
+Glimt modification, 2026-09-18. SPDX-License-Identifier: BSD-2-Clause
+Route 8-bit full-range RGBA to YUV 4:4:4 through libyuv (ABGRToARGB + ARGBToJ444)
+instead of the scalar float fallback. Absent from libavif 1.4.2 and upstream main.
+
+--- a/src/reformat_libyuv.c
++++ b/src/reformat_libyuv.c
+@@ -246,6 +246,8 @@
+ AVIF_DEFINE_CONVERSION(avifRAWToJ422, RAWToARGB, ARGBToJ422, AVIF_PIXEL_FORMAT_YUV422)
+ // AVIF_RGB_FORMAT_RGBA
+ AVIF_DEFINE_CONVERSION(avifABGRToI444, ABGRToARGB, ARGBToI444, AVIF_PIXEL_FORMAT_YUV444)
++// Glimt: libyuv has ARGBToJ444 but libavif did not route full-range RGBA 4:4:4 through it.
++AVIF_DEFINE_CONVERSION(avifABGRToJ444, ABGRToARGB, ARGBToJ444, AVIF_PIXEL_FORMAT_YUV444)
+ AVIF_DEFINE_CONVERSION(avifABGRToI422, ABGRToARGB, ARGBToI422, AVIF_PIXEL_FORMAT_YUV422)
+ // AVIF_RGB_FORMAT_ARGB
+ AVIF_DEFINE_CONVERSION(avifBGRAToI444, BGRAToARGB, ARGBToI444, AVIF_PIXEL_FORMAT_YUV444)
+@@ -350,7 +352,7 @@
+                 {
+                     // { NONE, YUV444, YUV422,   YUV420,   YUV400 }       // AVIF_RGB_FORMAT_
+                     { NULL, RAWToJ444, avifRAWToJ422, RAWToJ420, NULL },  // RGB
+-                    { NULL, NULL, ABGRToJ422, ABGRToJ420, NULL },         // RGBA
++                    { NULL, avifABGRToJ444, ABGRToJ422, ABGRToJ420, NULL }, // RGBA
+                     { NULL, NULL, avifBGRAToJ422, avifBGRAToJ420, NULL }, // ARGB
+                     { NULL, NULL, avifRGB24ToJ422, RGB24ToJ420, NULL },   // BGR
+                     { NULL, NULL, ARGBToJ422, ARGBToJ420, NULL },         // BGRA

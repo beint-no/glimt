@@ -34,7 +34,9 @@ live in ignored `native/.work`; outputs in `native/dist/<platform>/<codec>`.
 Any local upstream patches are also checksum-pinned in the source lock, applied
 to a fresh source tree when changed, and included in the corresponding native
 source JAR. libheif currently has a small patch avoiding null zero-length memory
-reads and overflowing read lengths discovered during sanitizer testing.
+reads and overflowing read lengths discovered during sanitizer testing, and
+libavif has one routing full-range RGBA 4:4:4 conversion through libyuv; see
+`native/patches/README.md`.
 
 Within one build invocation, each source and its patches are verified once, and
 the shared Little CMS dependency is configured, compiled and installed once.

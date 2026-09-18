@@ -15,6 +15,8 @@ public final class ConvertedImage {
      * @return an owned copy of the encoded image bytes
      */
     public byte[] bytes() { return bytes.clone(); }
+    /** Returns the encoded bytes without copying; only for callers that discard this instance. */
+    byte[] encodedBytes() { return bytes; }
     /**
      * Returns encoded size.
      * @return encoded size in bytes

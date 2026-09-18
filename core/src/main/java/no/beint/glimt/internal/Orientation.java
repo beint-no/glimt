@@ -16,7 +16,8 @@ public final class Orientation {
         int height = orientation >= 5 ? source.width() : source.height();
         int pixelSize = source.depth() > 8 ? 8 : 4;
         long stride = (long) width * pixelSize;
-        MemorySegment target = arena.allocate(stride * height, pixelSize);
+        // Every destination byte is written below, so skip the arena's zero fill.
+        MemorySegment target = NativeMemory.allocateUninitialized(arena, stride * height);
         MemorySegment pixels = source.pixels();
         long lastRow = (source.height() - 1L) * source.stride();
         long lastPixel = (source.width() - 1L) * pixelSize;

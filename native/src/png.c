@@ -48,7 +48,8 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     const int passes = png_set_interlace_handling(png);
     png_read_update_info(png, info);
     if (png_get_rowbytes(png, info) != out->stride) png_error(png, "Unexpected PNG row layout");
-    memset(out->pixels, 0, (size_t)out->size);
+    /* Adam7 passes merge into retained rows; a single pass writes every byte. */
+    if (passes > 1) memset(out->pixels, 0, (size_t)out->size);
     for (int pass = 0; pass < passes; pass++) for (uint32_t y = 0; y < out->height; y++)
         png_read_row(png, out->pixels + y * out->stride, NULL);
     png_read_end(png, NULL);

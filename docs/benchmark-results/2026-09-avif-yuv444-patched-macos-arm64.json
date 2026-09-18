@@ -1,0 +1,132 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.AvifEncodingBenchmark.encode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dglimt.native.avif=/private/tmp/claude-501/-Users-gregtaube-r/1f5edc49-d15b-4c87-9bcf-6453dc5b80e9/scratchpad/avif-local-patched/libglimt_avif.dylib"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "chroma" : "YUV444",
+            "threads" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 79.65625126153846,
+            "scoreError" : 1.3843080723887204,
+            "scoreConfidence" : [
+                78.27194318914974,
+                81.04055933392718
+            ],
+            "scorePercentiles" : {
+                "0.0" : 79.352391,
+                "50.0" : 79.46810576923077,
+                "90.0" : 80.20483007692307,
+                "95.0" : 80.20483007692307,
+                "99.0" : 80.20483007692307,
+                "99.9" : 80.20483007692307,
+                "99.99" : 80.20483007692307,
+                "99.999" : 80.20483007692307,
+                "99.9999" : 80.20483007692307,
+                "100.0" : 80.20483007692307
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    80.20483007692307,
+                    79.419766,
+                    79.352391,
+                    79.83616346153846,
+                    79.46810576923077
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "no.beint.glimt.benchmark.AvifEncodingBenchmark.encode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/gregtaube/Library/Java/JavaVirtualMachines/jdk-27.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "--illegal-native-access=deny",
+            "-Xms1g",
+            "-Xmx1g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=NO",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dglimt.native.avif=/private/tmp/claude-501/-Users-gregtaube-r/1f5edc49-d15b-4c87-9bcf-6453dc5b80e9/scratchpad/avif-local-patched/libglimt_avif.dylib"
+        ],
+        "jdkVersion" : "27",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "27+35-2325",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "chroma" : "YUV420",
+            "threads" : "1"
+        },
+        "primaryMetric" : {
+            "score" : 51.58588542,
+            "scoreError" : 1.7686330783829989,
+            "scoreConfidence" : [
+                49.817252341617,
+                53.354518498382994
+            ],
+            "scorePercentiles" : {
+                "0.0" : 51.13997085,
+                "50.0" : 51.3747625,
+                "90.0" : 52.26488125,
+                "95.0" : 52.26488125,
+                "99.0" : 52.26488125,
+                "99.9" : 52.26488125,
+                "99.99" : 52.26488125,
+                "99.999" : 52.26488125,
+                "99.9999" : 52.26488125,
+                "100.0" : 52.26488125
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    51.31111875,
+                    51.3747625,
+                    51.83869375,
+                    51.13997085,
+                    52.26488125
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

@@ -2,7 +2,7 @@
 
 **Native-quality image conversion that deploys like an ordinary JVM library.**
 
-Glimt converts images to AVIF or optimized JPEG using JDK 26 FFM and bundled
+Glimt converts images to AVIF or optimized JPEG using JDK 27 FFM and bundled
 native codecs. It has no JNI, third-party Java runtime dependencies, installed
 image utilities, subprocesses in the conversion path, or runtime downloads.
 

@@ -1,6 +1,6 @@
 # Maintainer release-bundle test; consumers do not need this Dockerfile.
-FROM bellsoft/hardened-liberica-runtime-container:jdk-all-26-musl AS jdk
-RUN cp -a "$JAVA_HOME" /jdk-copy
+FROM amazoncorretto:27-alpine-jdk AS jdk
+RUN cp -a "$(readlink -f "$JAVA_HOME")" /jdk-copy
 
 FROM alpine:3.24 AS tested
 RUN apk add --no-cache python3 fontconfig freetype

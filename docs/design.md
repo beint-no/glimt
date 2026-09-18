@@ -1,6 +1,6 @@
 # Glimt design
 
-Glimt targets JDK 26 and has no third-party Java runtime dependencies. Native
+Glimt targets JDK 27 and has no third-party Java runtime dependencies. Native
 codecs are packaged as resources, never downloaded or compiled at application
 startup. There is no executable invocation in the conversion path.
 

@@ -1,7 +1,8 @@
 # Native builds and releases
 
-Install JDK 27, Python 3.12+, C/C++ compilers, CMake, Ninja, pkg-config, Make,
-Meson 1.10.0, patch, and NASM on x86-64. Linux needs patchelf and Perl. macOS uses the
+Install JDK 27, [uv](https://docs.astral.sh/uv/), C/C++ compilers, CMake, Ninja,
+pkg-config, Make, patch, and NASM on x86-64. The scripts declare Python 3.15 and, for
+`native/build.py`, Meson 1.10.0 as inline script metadata; uv provides both. Linux needs patchelf and Perl. macOS uses the
 Command Line Tools for install-name editing and ad hoc signing.
 
 These instructions and the repository Dockerfiles are for Glimt maintainers.
@@ -9,11 +10,9 @@ Applications consuming Glimt do not compile codecs, use these images, or install
 native build packages.
 
 ```sh
-python3 -m venv native/.work/tools
-native/.work/tools/bin/pip install meson==1.10.0
-python3 native/build.py
+native/build.py
 ./gradlew build
-python3 tools/runtime-smoke.py
+tools/runtime-smoke.py
 ```
 
 Use `--platform linux-x64-glibc` or `linux-x64-musl` on the corresponding host.
@@ -68,8 +67,8 @@ once as an integration check. Full measurements remain opt-in with
 Native instrumentation on Linux:
 
 ```sh
-CC=clang CXX=clang++ python3 native/build.py --sanitize
-CC=clang CXX=clang++ python3 native/sanitize.py
+CC=clang CXX=clang++ native/build.py --sanitize
+CC=clang CXX=clang++ native/sanitize.py
 ```
 
 This uses separate outputs and instruments codecs and bridge with ASan/UBSan.
@@ -90,14 +89,14 @@ Photograph licenses and provenance are included with the corpus.
 
 1. Pass platform, minimal-runtime, clean-container and sanitizer checks for the
    intended revision.
-2. Run `python3 tools/collect-native-release.py <successful-verify-run-id>`.
+2. Run `tools/collect-native-release.py <successful-verify-run-id>`.
    This downloads all three platform artifacts, verifies their GitHub ZIP
    digests, checks a successful sanitizer job and records the source revision.
    Docker builds exclude Git metadata; their revision comes from the verified
    workflow checkout rather than an unavailable `.git` directory in the image.
 3. Retain pinned archives in `native/.work/archives` for verification and HEIC
    corresponding source JARs. Other source JARs include the pinned recipe.
-4. Run `python3 tools/verify-release.py`, `./gradlew build` and runtime smoke tests.
+4. Run `tools/verify-release.py`, `./gradlew build` and runtime smoke tests.
 5. Inspect artifacts/POMs/notices; merge the release PR, update main and tag.
 6. Pushing a `v*` tag runs `.github/workflows/publish.yml`, which waits for the
    Verify run of the tagged commit, collects its native bundles with

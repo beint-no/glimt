@@ -1,7 +1,9 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# ///
 """Verify the small bundle on both class path and module path, without java.desktop."""
 import argparse
-import os
 from pathlib import Path
 import platform
 import shutil

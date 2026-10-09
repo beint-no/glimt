@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# ///
 """Collect one successful GitHub Actions build, verifying artifact ZIP digests."""
 import argparse
 import hashlib
@@ -7,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,4 +90,4 @@ for platform in ('macos-arm64', 'linux-x64-glibc', 'linux-x64-musl'):
                                  'artifact_id': artifact['id'], 'artifact_digest': digest}
         info_path.write_text(json.dumps(info, indent=2) + '\n')
     print('Collected', platform, digest)
-subprocess.run(['python3', 'tools/verify-release.py'], cwd=ROOT, check=True)
+subprocess.run([sys.executable, 'tools/verify-release.py'], cwd=ROOT, check=True)

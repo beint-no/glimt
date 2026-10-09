@@ -57,7 +57,7 @@ Compare two raw JMH result files with the dependency-free report tool. Positive
 change means improvement for both latency and throughput modes.
 
 ```sh
-python3 tools/compare-benchmarks.py baseline.json candidate.json
+tools/compare-benchmarks.py baseline.json candidate.json
 ```
 
 ## 0.3.0 development measurements

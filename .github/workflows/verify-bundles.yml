@@ -36,6 +36,10 @@ jobs:
         with:
           distribution: corretto
           java-version: '27'
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+          allow-prereleases: true
       - uses: gradle/actions/setup-gradle@v6
         if: matrix.platform != 'linux-x64-musl'
       - name: Verify glibc detection with a second libc installed

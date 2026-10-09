@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# ///
 """Generate original test images. ImageMagick is a development tool, never a runtime dependency."""
 from pathlib import Path
 import concurrent.futures

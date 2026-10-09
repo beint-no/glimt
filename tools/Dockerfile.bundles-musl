@@ -3,6 +3,8 @@ FROM amazoncorretto:27-alpine-jdk AS jdk
 RUN cp -a "$(readlink -f "$JAVA_HOME")" /jdk-copy
 
 FROM alpine:3.24 AS tested
+# Alpine ships no Python 3.15 package yet; runtime-smoke.py and the Gradle check
+# scripts must stay compatible with this python3 (3.14).
 RUN apk add --no-cache python3 fontconfig freetype
 COPY --from=jdk /jdk-copy /opt/jdk
 ENV JAVA_HOME=/opt/jdk PATH=/opt/jdk/bin:$PATH

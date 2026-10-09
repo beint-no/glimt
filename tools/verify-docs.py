@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# ///
 """Dependency-free checks for versioned examples and local documentation links."""
 
 import pathlib

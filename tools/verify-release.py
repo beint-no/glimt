@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# ///
 """All-platform publication gate. Run only after collecting verified CI outputs."""
 import hashlib
 import json

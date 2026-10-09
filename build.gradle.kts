@@ -45,6 +45,8 @@ abstract class VerifyPlatformVariants : DefaultTask() {
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
 allprojects { group = "no.beint.glimt"; version = "0.5.4" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
+// Gradle runs these with the host python3, including inside the Alpine images, which
+// have no Python 3.15 yet; keep these scripts free of 3.15-only syntax until they do.
 val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
     description = "Checks documentation links and consumer coordinates against the release version."
     commandLine("python3", "tools/verify-docs.py", version.toString())

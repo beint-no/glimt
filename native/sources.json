@@ -77,11 +77,11 @@
     "sha256": "3034a64f22398e15ee3dd1e6b1aa83d838cfc47df1bb246ae0eca9590e6ace72"
   },
   "aom": {
-    "version": "3.14.1",
-    "url": "https://aomedia.googlesource.com/aom/+archive/refs/tags/v3.14.1.tar.gz",
-    "sha256": "14ff547142d7761c107329dd351bcbd8a48d552cefa3aae9c5f64b863fd5bef0",
+    "version": "3.15.2",
+    "url": "https://aomedia.googlesource.com/aom/+archive/refs/tags/v3.15.2.tar.gz",
+    "sha256": "eab9ecffd76e2542190df616fb6d01c6b5841185f8403f0eaf475e4c98cbb23e",
     "strip": false,
-    "tree_sha256": "3a42b9ae6b19bd3fe6b680d6fc0c1f3e8637371ad5390ba53f738f1c2c42fa43"
+    "tree_sha256": "052d271c0611be6a57651f1ccff068b31cbe8f6f426916b7475bf0afa9f005f9"
   },
   "yuv": {
     "version": "644251f252a84bf8ce91ff0aca86a9b16b069ab8",

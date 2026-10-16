@@ -206,7 +206,9 @@ for codec in args.codecs.split(','):
         avif_src = source('avif')
         dav1d_link = avif_src / 'ext/dav1d'
         if not dav1d_link.exists(): dav1d_link.symlink_to(dav1d, target_is_directory=True)
-        cmake('avif', ['-DAVIF_CODEC_AOM=LOCAL', '-DAVIF_CODEC_AOM_DECODE=OFF', '-DAVIF_CODEC_DAV1D=LOCAL',
+        # libaom 3.15 split ENABLE_APPS out of ENABLE_EXAMPLES, which libavif
+        # already disables; without this it would build aomenc and aomdec.
+        cmake('avif', ['-DENABLE_APPS=OFF', '-DAVIF_CODEC_AOM=LOCAL', '-DAVIF_CODEC_AOM_DECODE=OFF', '-DAVIF_CODEC_DAV1D=LOCAL',
                       '-DAVIF_LIBYUV=LOCAL', '-DAVIF_BUILD_APPS=OFF', '-DAVIF_BUILD_TESTS=OFF', '-DAVIF_BUILD_EXAMPLES=OFF',
                       '-DFETCHCONTENT_SOURCE_DIR_LIBAOM=' + str(aom), '-DFETCHCONTENT_SOURCE_DIR_LIBYUV=' + str(yuv)])
         archives = []
@@ -259,8 +261,10 @@ for codec in args.codecs.split(','):
         cmake('webp', ['-DWEBP_BUILD_ANIM_UTILS=OFF', '-DWEBP_BUILD_CWEBP=OFF', '-DWEBP_BUILD_DWEBP=OFF',
                        '-DWEBP_BUILD_GIF2WEBP=OFF', '-DWEBP_BUILD_IMG2WEBP=OFF', '-DWEBP_BUILD_VWEBP=OFF',
                        '-DWEBP_BUILD_WEBPINFO=OFF', '-DWEBP_BUILD_WEBPMUX=OFF', '-DWEBP_BUILD_EXTRAS=OFF'])
-        bridge(codec, [PREFIX / 'lib/libwebpdemux.a', PREFIX / 'lib/libwebp.a', PREFIX / 'lib/libsharpyuv.a'])
-        notices(codec, ['webp'])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
+        bridge(codec, [PREFIX / 'lib/libwebpdemux.a', PREFIX / 'lib/libwebp.a', PREFIX / 'lib/libsharpyuv.a',
+                       PREFIX / 'lib/liblcms2.a'])
+        notices(codec, ['webp', 'lcms'])
     elif codec == 'heic':
         runtime_flags = [] if platform.system() == 'Darwin' else ['-DCMAKE_SHARED_LINKER_FLAGS=-static-libstdc++ -static-libgcc']
         cmake('de265', ['-DBUILD_SHARED_LIBS=ON', '-DENABLE_SDL=OFF', '-DENABLE_DECODER=OFF', '-DENABLE_ENCODER=OFF', *runtime_flags])

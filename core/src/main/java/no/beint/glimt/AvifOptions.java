@@ -4,7 +4,8 @@ package no.beint.glimt;
  * Immutable AV1 encoder options. Instances validate their ranges on construction.
  *
  * @param quality colour quality from 0 through 100; ignored in lossless mode
- * @param alphaQuality alpha quality from 0 through 100; 100 keeps alpha lossless
+ * @param alphaQuality alpha quality from 0 through 100; 100 keeps alpha lossless, which on
+ *        cut-out photographs costs about a fifth of the whole file for an invisible difference
  * @param effort compression effort from 0 (fastest) through 10 (slowest)
  * @param threads maximum codec threads per conversion, from 1 through 64
  * @param bitDepth 0 to retain input depth up to 12 bits, or an explicit 8, 10 or 12
@@ -14,8 +15,8 @@ package no.beint.glimt;
  */
 public record AvifOptions(int quality, int alphaQuality, int effort, int threads,
                           int bitDepth, Chroma chroma, boolean lossless, long maxOutputBytes) {
-    /** Quality 75, lossless alpha, effort 4, one codec thread, 4:4:4, and a 64 MiB output limit. */
-    public static final AvifOptions DEFAULT = new AvifOptions(75, 100, 4, 1, 0, Chroma.YUV444, false, 64L << 20);
+    /** Quality 75, alpha quality 90, effort 4, one codec thread, 4:4:4, and a 64 MiB output limit. */
+    public static final AvifOptions DEFAULT = new AvifOptions(75, 90, 4, 1, 0, Chroma.YUV444, false, 64L << 20);
     /**
      * Creates validated AVIF options.
      *
@@ -34,6 +35,12 @@ public record AvifOptions(int quality, int alphaQuality, int effort, int threads
      * @return a copy with the selected colour quality
      */
     public AvifOptions withQuality(int value) { return new AvifOptions(value, alphaQuality, effort, threads, bitDepth, chroma, lossless, maxOutputBytes); }
+    /**
+     * Changes alpha quality.
+     * @param value alpha quality from 0 through 100
+     * @return a copy with the selected alpha quality
+     */
+    public AvifOptions withAlphaQuality(int value) { return new AvifOptions(quality, value, effort, threads, bitDepth, chroma, lossless, maxOutputBytes); }
     /**
      * Changes compression effort.
      * @param value effort from 0 through 10

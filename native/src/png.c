@@ -77,9 +77,13 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
             if (!generated || !cmsSaveProfileToMem(generated, NULL, &length) || length > limits->max_metadata_bytes)
                 failed = glimt_fail(out, "Invalid PNG gamma/chromaticities");
             else {
-                out->icc = malloc(length); out->icc_size = length;
-                if (!out->icc || !cmsSaveProfileToMem(generated, out->icc, &length)) failed = glimt_fail(out, "Cannot preserve PNG colour space");
-                else { out->primaries = 2; out->transfer = 2; }
+                /* Describe gamma and chromaticities as a profile, then let the
+                 * shared colour path collapse the ones that render as sRGB. */
+                void *described = malloc(length);
+                if (!described || !cmsSaveProfileToMem(generated, described, &length))
+                    failed = glimt_fail(out, "Cannot preserve PNG colour space");
+                else failed = glimt_color(out, described, length, limits);
+                free(described);
             }
             if (generated) cmsCloseProfile(generated);
             if (curve) cmsFreeToneCurve(curve);

@@ -14,7 +14,7 @@ image utilities, subprocesses in the conversion path, or runtime downloads.
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.5.4")
+    implementation("no.beint.glimt:all:0.6.0")
 }
 ```
 
@@ -89,7 +89,7 @@ limits.
 Install only the decoders you need. `avif` supplies the encoder and reads AVIF.
 
 ```kotlin
-val glimt = "0.5.4"
+val glimt = "0.6.0"
 dependencies {
     implementation("no.beint.glimt:avif:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -104,7 +104,7 @@ For JPEG output instead of AVIF, replace the `avif` encoder with `jpegli` while
 keeping only the input decoders and optional resize module you need:
 
 ```kotlin
-val glimt = "0.5.4"
+val glimt = "0.6.0"
 dependencies {
     implementation("no.beint.glimt:jpegli:$glimt")
     runtimeOnly("no.beint.glimt:jpeg:$glimt")
@@ -131,7 +131,7 @@ and native bundles on both classpath and module path. Shaded JARs must merge
 | `jpeg` | JPEG | libjpeg-turbo; baseline/progressive, gray, CMYK/YCCK and supported high-precision modes |
 | `jpegli` | JPEG output | JPEGli encoder; standard baseline-compatible JPEG, progressive/sequential, 4:2:0/4:4:4 and ICC |
 | `png` | PNG/APNG | libpng; palette, alpha, interlace, 8/16-bit, ICC, gamma/chromaticities and full-range CICP |
-| `webp` | WebP | libwebp; lossy/lossless, alpha and first-frame animation composition |
+| `webp` | WebP | libwebp; lossy/lossless, alpha, ICC and first-frame animation composition |
 | `heic` | HEVC in HEIC/HEIF | libheif + libde265; alpha, 8/10/12-bit, primary image and orientation |
 | `jxl` | JPEG XL | libjxl; integer samples through 16-bit, alpha, orientation and animation selection |
 | `jdk-imageio` | GIF, BMP, TIFF, WBMP | JDK readers only; normalizes to 8-bit sRGB; requires `java.desktop` |
@@ -149,16 +149,25 @@ the same tile between colour and alpha are not supported.
 ## Fidelity and options
 
 Dimensions and straight alpha are retained. EXIF/container orientation is
-applied. RGB ICC profiles travel with samples; gray ICC and CMYK JPEG profiles
-are converted to sRGB. Untagged images are treated as sRGB. EXIF, GPS, XMP and
-other non-colour metadata are stripped.
+applied. An RGB ICC profile that renders as sRGB is replaced by CICP sRGB rather
+than carried, which saves about half a kilobyte per image, lets the resizer
+interpolate in linear light and keeps decoders that ignore profiles correct;
+every other RGB profile travels with its samples. Gray ICC and CMYK JPEG
+profiles are converted to sRGB. Untagged images are treated as sRGB. EXIF, GPS,
+XMP and other non-colour metadata are stripped. A fully opaque alpha channel is
+dropped and the colour under fully transparent pixels is flattened, except in
+lossless mode, which keeps every decoded sample.
 
 Only the primary/base image is converted. Gain maps, depth/auxiliary images,
 HDR mastering metadata and non-square pixel aspect ratios are not carried to
 output. This is a still-image converter, not an archival container transcoder;
 keep originals when those features matter.
 
-AVIF defaults: lossy quality 75, 4:4:4 chroma, lossless alpha, effort 4. AVIF supports
+AVIF defaults: lossy quality 75, 4:4:4 chroma, alpha quality 90, effort 4. Lossless
+alpha costs about a fifth of a cut-out photograph's bytes for an alpha error under
+2/255, so it is opt-in through `alphaQuality(100)`. 4:2:0 chroma measures larger
+than 4:4:4 at equal SSIMULACRA2 on photographs with libaom's `tune=iq`, which is
+why 4:4:4 is the default. AVIF supports
 at most 12 bits per channel, so 16-bit input is quantized to 12-bit unless an
 explicit depth is chosen. The ImageIO module has an 8-bit boundary. `lossless`
 preserves decoded samples, not an original JPEG compression stream; incompatible
@@ -247,7 +256,8 @@ choose the parent. There is no host-codec fallback or startup network access.
 
 See [deployment](docs/deployment.md), [native builds](docs/native-build.md),
 [native licensing](docs/native-licenses.md), [benchmarks](docs/benchmarks.md),
-[the JPEGli evaluation](docs/jpegli-evaluation.md) and [the design](docs/design.md).
+[the JPEGli evaluation](docs/jpegli-evaluation.md), [the AVIF compression
+pass](docs/avif-compression-2026-10.md) and [the design](docs/design.md).
 Tests cover generated patterns and licensed
 photographs, orientation, profiles, alpha, bit depth, animations, malformed
 input, limits, concurrency, resizing and output decoding. CI also exercises minimal

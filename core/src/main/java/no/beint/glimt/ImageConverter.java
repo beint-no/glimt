@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import no.beint.glimt.internal.Alpha;
 import no.beint.glimt.internal.ConversionPipeline;
 import no.beint.glimt.spi.AvifEncoder;
 
@@ -70,7 +71,9 @@ public final class ImageConverter {
      */
     public ConvertedImage convert(byte[] input) {
         return pipeline.convert(input, (pixels, frames, format, arena) -> {
-            byte[] output = encoder.encode(pixels, options, arena);
+            // Lossless output must keep the decoded samples, including the
+            // invisible colour under transparent pixels.
+            byte[] output = encoder.encode(options.lossless() ? pixels : Alpha.normalize(pixels), options, arena);
             if (output.length > options.maxOutputBytes()) throw new ImageException("Encoded output exceeds configured limit");
             int depth = options.bitDepth() == 0 ? Math.min(12, pixels.depth()) : options.bitDepth();
             return new ConvertedImage(output, pixels.width(), pixels.height(), depth, frames, format, ImageFormat.AVIF);
@@ -156,6 +159,12 @@ public final class ImageConverter {
          * @return this builder
          */
         public Builder effort(int value) { options = options.withEffort(value); return this; }
+        /**
+         * Sets alpha quality on the current AVIF options.
+         * @param value alpha quality from 0 through 100
+         * @return this builder
+         */
+        public Builder alphaQuality(int value) { options = options.withAlphaQuality(value); return this; }
         /**
          * Sets decode rejection boundaries.
          * @param value decode limits

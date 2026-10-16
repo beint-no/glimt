@@ -16,7 +16,7 @@ unrelated upstream test photographs are not redistributed in those source JARs.
 | JPEG | libjpeg-turbo, Little CMS | IJG/BSD, MIT |
 | JPEGli | JPEGli, Highway, libjpeg-turbo headers | BSD, Apache/BSD, IJG/BSD |
 | PNG | libpng, zlib, Little CMS | libpng, zlib, MIT |
-| WebP | libwebp, libsharpyuv | BSD and included patent grant |
+| WebP | libwebp, libsharpyuv, Little CMS | BSD and included patent grant, MIT |
 | HEIC | libheif, libde265 | LGPL-3.0-or-later for decoder libraries |
 | JPEG XL | libjxl, Highway, Brotli, Little CMS | BSD, Apache/BSD, MIT |
 | Extra | ImageMagick, libpng, zlib, Little CMS | ImageMagick, libpng, zlib, MIT |

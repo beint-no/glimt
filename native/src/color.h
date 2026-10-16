@@ -3,6 +3,46 @@
 #include "glimt.h"
 #include <lcms2.h>
 
+/* Decides by rendering, not by profile structure, so matrix-shaper, parametric
+ * and LUT spellings of sRGB are all recognised. A coarse cube covers the gamut
+ * and a full grey ramp covers the tone curve, where sRGB's linear toe makes a
+ * plain gamma 2.2 profile measurably different. */
+static int glimt_profile_renders_as_srgb(cmsHPROFILE profile, uint32_t depth) {
+    enum { GRID = 9, PROBES = GRID * GRID * GRID + 256 };
+    cmsHPROFILE srgb = cmsCreate_sRGBProfile();
+    cmsHTRANSFORM transform = srgb ? cmsCreateTransform(profile, TYPE_RGB_16, srgb, TYPE_RGB_16,
+        INTENT_RELATIVE_COLORIMETRIC, 0) : NULL;
+    int equivalent = 0;
+    if (transform) {
+        uint16_t source[PROBES * 3], rendered[PROBES * 3];
+        unsigned probe = 0;
+        for (unsigned r = 0; r < GRID; r++) for (unsigned g = 0; g < GRID; g++) for (unsigned b = 0; b < GRID; b++) {
+            source[probe * 3] = (uint16_t)(r * 65535 / (GRID - 1));
+            source[probe * 3 + 1] = (uint16_t)(g * 65535 / (GRID - 1));
+            source[probe * 3 + 2] = (uint16_t)(b * 65535 / (GRID - 1));
+            probe++;
+        }
+        for (unsigned level = 0; level < 256; level++) {
+            source[probe * 3] = source[probe * 3 + 1] = source[probe * 3 + 2] = (uint16_t)(level * 65535 / 255);
+            probe++;
+        }
+        cmsDoTransform(transform, source, rendered, probe);
+        /* Two sample steps of the image's own depth. Measured peak deviations
+         * from lcms sRGB, in 8-bit steps: 0.5 for the compact lcms and macOS
+         * sRGB profiles, 1.4 for the JDK's measured-TRC sRGB, then 16 for
+         * ITU-709 and 64 or more for Generic RGB, Display P3 and Adobe RGB. */
+        const int tolerance = (int)(2u * 65535u / ((1u << (depth > 8 ? 10 : 8)) - 1u));
+        equivalent = 1;
+        for (unsigned i = 0; i < probe * 3 && equivalent; i++) {
+            const int delta = (int)rendered[i] - (int)source[i];
+            if (delta > tolerance || delta < -tolerance) equivalent = 0;
+        }
+        cmsDeleteTransform(transform);
+    }
+    if (srgb) cmsCloseProfile(srgb);
+    return equivalent;
+}
+
 /* RGB profiles travel with their samples. Gray profiles must be converted because
  * the public pixel ABI is RGBA, and an AVIF RGB image cannot carry a gray ICC. */
 static int glimt_color(glimt_image *out, const void *bytes, size_t size, const glimt_limits *limits) {
@@ -12,7 +52,13 @@ static int glimt_color(glimt_image *out, const void *bytes, size_t size, const g
     if (!profile) return glimt_fail(out, "Invalid ICC colour profile");
     cmsColorSpaceSignature color = cmsGetColorSpace(profile);
     if (color == cmsSigRgbData) {
+        /* Carrying a profile that renders as sRGB costs every encoded image
+         * about half a kilobyte, hides the transfer function from the resizer,
+         * which then interpolates in gamma space, and leaves decoders that
+         * ignore ICC profiles with unspecified CICP. Tag sRGB instead. */
+        const int srgb = glimt_profile_renders_as_srgb(profile, out->depth);
         cmsCloseProfile(profile);
+        if (srgb) { out->primaries = 1; out->transfer = 13; return 0; }
         out->primaries = 2; out->transfer = 2;
         return glimt_icc(out, bytes, size, limits);
     }

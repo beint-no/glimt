@@ -116,11 +116,11 @@ Mean linear-light luminance of a 640 px rendition against its master:
 
 | Image | 0.5.4 | 0.6.0 |
 | --- | ---: | ---: |
-| img-150938 (dense product grid) | −8.00% | −0.54% |
-| img-142523 (dark sports graphic) | −4.95% | −0.92% |
-| img-142005 (food photograph) | −1.81% | −0.44% |
-| img-141998 (food photograph) | −1.53% | −0.35% |
-| img-260 (flat packaging shot) | −0.30% | −0.07% |
+| Patterned textile bag, 2400 px | −8.00% | −0.54% |
+| Navy sportswear on navy, 1600 px | −4.95% | −0.92% |
+| Food photograph, 1800 px | −1.81% | −0.44% |
+| Food photograph, 1800 px | −1.53% | −0.35% |
+| Flat packaging shot, 800 px | −0.30% | −0.07% |
 
 `glimt_profile_renders_as_srgb` decides by rendering rather than by profile
 structure: it transforms a 9×9×9 RGB cube plus a 256-step grey ramp through the

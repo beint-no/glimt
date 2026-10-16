@@ -101,7 +101,7 @@ class JpegConversionTest {
     }
 
     @Test
-    void handlesSixteenBitInputAndPreservesRgbIcc() throws Exception {
+    void handlesSixteenBitInputAndDropsAnSrgbIccWithoutChangingColour() throws Exception {
         assertNotNull(ImageIO.read(new ByteArrayInputStream(JPEG.toJpeg(fixture("rgba16.png")))));
         byte[] source = fixture("dog_exif_extended_xmp_icc.jpg");
         byte[] output = JPEG.toJpeg(source);
@@ -110,8 +110,12 @@ class JpegConversionTest {
                 DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
             var converted = NativeCodec.of("jpeg").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, output),
                 DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
-            assertTrue(original.icc().byteSize() > 0);
-            assertArrayEquals(original.icc().toArray(ValueLayout.JAVA_BYTE), converted.icc().toArray(ValueLayout.JAVA_BYTE));
+            // The fixture carries an sRGB profile, which JPEG output leaves out
+            // because an untagged JPEG is already read as sRGB.
+            assertEquals(0, original.icc().byteSize());
+            assertEquals(0, converted.icc().byteSize());
+            assertEquals(1, converted.primaries());
+            assertEquals(13, converted.transfer());
         }
     }
 

@@ -44,7 +44,8 @@ ICC handling and JPEGli encoding. Quality 70/80/90 results were:
 | 2400-pixel long edge | 66.129 ms | 64.361 ms | 69.628 ms |
 
 Compression efficiency and the ReAI workload decision are documented separately
-in [the JPEGli evaluation](jpegli-evaluation.md). Latency and byte-size evidence
+in [the JPEGli evaluation](jpegli-evaluation.md) and, for AVIF, in [the October
+2026 compression pass](avif-compression-2026-10.md). Latency and byte-size evidence
 serve different purposes; JMH does not substitute for a quality-matched codec study.
 
 Use JMH's GC profiler when reviewing Java allocation:

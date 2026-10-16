@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0
+
+* Tag CICP sRGB instead of carrying an embedded profile that renders as sRGB.
+  Every encoded image loses 0.4-0.6 kB, which is about 2.5% of a 320 px
+  rendition, the resizer sees the transfer function and interpolates in linear
+  light instead of gamma space, and decoders that ignore ICC profiles no longer
+  get unspecified colour. WebP now shares the JPEG and PNG colour path.
+* Drop a fully opaque alpha channel and flatten the colour under fully
+  transparent pixels for every AVIF conversion, not only for resized images.
+  Lossless conversions keep their samples.
+* Default alpha quality is 90 rather than lossless. On cut-out product
+  photographs lossless alpha costs about a fifth of the whole file, for an alpha
+  error of at most 4/255.
+* Update libaom to 3.15.2, which is 0.6-3.8% smaller at equal SSIMULACRA2 and
+  carries the 3.15.0 security fixes.
+
 ## 0.5.4
 
 * Route 8-bit full-range RGBA to 4:4:4 AVIF colour conversion through libyuv

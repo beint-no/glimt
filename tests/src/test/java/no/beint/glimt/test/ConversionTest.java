@@ -146,24 +146,58 @@ class ConversionTest {
             assertTrue(decoded.width() > 10 && decoded.height() > 10);
         }
     }
-    @Test void preservesRgbIccAndNormalizesGrayIcc() throws Exception {
+    @Test void normalizesAlphaWithoutResizingAndLeavesLosslessSamplesAlone() throws Exception {
+        // Fully opaque RGBA, and RGBA whose transparent pixels carry colour.
+        byte[] opaque = png(2, 1, 8, 6, new byte[]{0,12,34,56,(byte)255,(byte)200,(byte)100,50,(byte)255}, "tEXt", new byte[]{'a',0});
+        byte[] masked = png(2, 1, 8, 6, new byte[]{0,12,34,56,(byte)255,(byte)200,(byte)100,50,0}, "tEXt", new byte[]{'a',0});
+        byte[] alreadyBlack = png(2, 1, 8, 6, new byte[]{0,12,34,56,(byte)255,0,0,0,0}, "tEXt", new byte[]{'a',0});
+        // Invisible colour must not reach the encoder, so the two inputs have to
+        // produce the same bytes; lossless output keeps them distinct.
+        assertArrayEquals(FAST.convert(alreadyBlack).bytes(), FAST.convert(masked).bytes());
+        var keepSamples = ImageConverter.builder().options(AvifOptions.DEFAULT.withEffort(0).withLossless(true)).build();
+        assertFalse(java.util.Arrays.equals(keepSamples.convert(alreadyBlack).bytes(), keepSamples.convert(masked).bytes()));
+        try (Arena arena = Arena.ofConfined()) {
+            var dropped = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE,
+                FAST.convert(opaque).bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertFalse(dropped.hasAlpha());
+            var cleared = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE,
+                ImageConverter.builder().options(AvifOptions.DEFAULT.withEffort(0).withAlphaQuality(100)).build()
+                    .convert(masked).bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertTrue(cleared.hasAlpha());
+            var intact = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE,
+                ImageConverter.builder().options(AvifOptions.DEFAULT.withEffort(0).withLossless(true)).build()
+                    .convert(masked).bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertArrayEquals(new byte[]{12,34,56,(byte)255,(byte)200,(byte)100,50,0},
+                intact.pixels().toArray(ValueLayout.JAVA_BYTE));
+        }
+    }
+    @Test void tagsSrgbItselfKeepsOtherRgbIccAndNormalizesGrayIcc() throws Exception {
         var lossless = ImageConverter.builder().options(AvifOptions.DEFAULT.withEffort(0).withLossless(true)).build();
-        byte[] rgbProfile = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_sRGB).getData();
-        byte[] grayProfile = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_GRAY).getData();
-        for (boolean gray : new boolean[]{false, true}) {
-            byte[] profile = gray ? grayProfile : rgbProfile;
+        // CS_LINEAR_RGB shares sRGB's primaries with a linear tone curve, so it
+        // stands in for any profile that must keep travelling with its samples.
+        byte[] srgb = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_sRGB).getData();
+        byte[] linear = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_LINEAR_RGB).getData();
+        byte[] gray = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_GRAY).getData();
+        for (byte[] profile : new byte[][]{srgb, linear, gray}) {
+            boolean isGray = profile == gray;
             var icc = new ByteArrayOutputStream(); icc.writeBytes(new byte[]{'i','c','c',0,0}); icc.writeBytes(deflate(profile));
-            byte[] source = png(1, 1, 8, gray ? 0 : 6, gray ? new byte[]{0,(byte)128} : new byte[]{0,12,34,56,(byte)200}, "iCCP", icc.toByteArray());
+            byte[] source = png(1, 1, 8, isGray ? 0 : 6, isGray ? new byte[]{0,(byte)128} : new byte[]{0,12,34,56,(byte)200}, "iCCP", icc.toByteArray());
             var result = lossless.convert(source);
             try (Arena arena = Arena.ofConfined()) {
                 var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, result.bytes()), DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
-                if (gray) {
+                if (isGray) {
                     assertEquals(0, decoded.icc().byteSize());
                     assertEquals(188, decoded.pixels().get(ValueLayout.JAVA_BYTE, 0) & 255, 2);
                     assertEquals(255, decoded.pixels().get(ValueLayout.JAVA_BYTE, 3) & 255);
+                    continue;
+                }
+                assertArrayEquals(new byte[]{12,34,56,(byte)200}, decoded.pixels().toArray(ValueLayout.JAVA_BYTE));
+                if (profile == srgb) {
+                    assertEquals(0, decoded.icc().byteSize());
+                    assertEquals(1, decoded.primaries()); assertEquals(13, decoded.transfer());
                 } else {
                     assertArrayEquals(profile, decoded.icc().toArray(ValueLayout.JAVA_BYTE));
-                    assertArrayEquals(new byte[]{12,34,56,(byte)200}, decoded.pixels().toArray(ValueLayout.JAVA_BYTE));
+                    assertEquals(2, decoded.primaries()); assertEquals(2, decoded.transfer());
                 }
             }
         }

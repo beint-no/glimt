@@ -174,7 +174,22 @@ file.
 ## Not pursued
 
 * **Sharp RGB-to-YUV for 4:2:0.** Would need libsharpyuv in the avif bundle, and
-  4:2:0 has to beat 4:4:4 first.
+  4:2:0 has to beat 4:4:4 first. At a matched file size on the most saturated
+  image in the corpus, 4:4:4 at quality 75 and 4:2:0 at quality 78 came out at
+  SSIMULACRA2 81.76 against 81.60 and are indistinguishable side by side, so the
+  table above is not an artefact of the metric.
+* **The HEIC decoder's own ICC path.** `heic.c` copies the raw profile itself
+  rather than calling `glimt_color`, so an sRGB-tagged HEIC still carries its
+  profile. Sharing the path means Little CMS in the HEIC bundle, and HEIC is not
+  an upload format for the storefronts this pass measured.
+* **The 267-byte container header**, a flat `ftyp` plus `meta` on every file:
+  9.3% of the smallest 320 px rendition and 3.8% of a 640 px one. libavif 1.4.2
+  can write the compact `AVIF_HEADER_MINI` form, but Glimt does not read it and
+  browser support is not there.
+* **Encoding to a quality target instead of a quality number.** At quality 75 and
+  speed 4 the corpus spans SSIMULACRA2 73.8 to 89.1, so the easy images are paid
+  for at a quality nobody asked for. A two- or three-step search per master would
+  even that out; masters are encoded once, so the extra encodes are affordable.
 * **Deriving a linear-light resize for carried profiles.** `stb_image_resize2`
   offers sRGB or raw 8-bit, so a non-sRGB profile still interpolates in its own
   encoding. Correct handling means resampling through a linear 16-bit

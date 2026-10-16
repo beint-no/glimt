@@ -16,7 +16,7 @@ from source_hash import tree_hash
 LOCK = json.loads((ROOT / 'native/sources.json').read_text())
 CODECS = {'avif': ['avif', 'aom', 'dav1d', 'yuv'], 'jpeg': ['jpeg', 'lcms'],
           'jpegli': ['jpegli', 'jpegli-highway', 'jpegli-libjpeg', 'lcms'],
-          'png': ['png', 'zlib', 'lcms'], 'webp': ['webp'], 'heic': ['heif', 'de265'],
+          'png': ['png', 'zlib', 'lcms'], 'webp': ['webp', 'lcms'], 'heic': ['heif', 'de265'],
           'jxl': ['jxl', 'highway', 'brotli', 'lcms'], 'extra': ['magick', 'png', 'zlib', 'lcms'],
           'resize': ['stb']}
 for name in sorted({name for sources in CODECS.values() for name in sources}):

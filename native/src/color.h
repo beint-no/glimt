@@ -10,8 +10,12 @@
 static int glimt_profile_renders_as_srgb(cmsHPROFILE profile, uint32_t depth) {
     enum { GRID = 9, PROBES = GRID * GRID * GRID + 256 };
     cmsHPROFILE srgb = cmsCreate_sRGBProfile();
+    /* cmsFLAGS_NOOPTIMIZE evaluates the pipeline itself rather than a resampled
+     * approximation of it, which is both what this comparison wants and a way
+     * around Little CMS calling its interpolator through a mismatched function
+     * pointer in the resampling optimizer. */
     cmsHTRANSFORM transform = srgb ? cmsCreateTransform(profile, TYPE_RGB_16, srgb, TYPE_RGB_16,
-        INTENT_RELATIVE_COLORIMETRIC, 0) : NULL;
+        INTENT_RELATIVE_COLORIMETRIC, cmsFLAGS_NOOPTIMIZE) : NULL;
     int equivalent = 0;
     if (transform) {
         uint16_t source[PROBES * 3], rendered[PROBES * 3];

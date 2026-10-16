@@ -1,4 +1,4 @@
-#include "glimt.h"
+#include "color.h"
 #include <avif/avif.h>
 
 API const char *glimt_version(void) { return avifVersion(); }
@@ -46,7 +46,6 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     const unsigned mirrors[2][4] = {{4, 5, 2, 7}, {2, 7, 4, 5}};
     out->orientation = (image->transformFlags & AVIF_TRANSFORM_IMIR) ? mirrors[image->imir.axis & 1][angle & 3] : rotations[angle & 3];
     int failed = glimt_allocate(out, limits);
-    if (!failed) failed = glimt_icc(out, image->icc.data, image->icc.size, limits);
     if (!failed) {
         avifRGBImage rgb; avifRGBImageSetDefaults(&rgb, view ? view : image);
         rgb.format = AVIF_RGB_FORMAT_RGBA; rgb.depth = out->depth;
@@ -54,6 +53,9 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
         status = avifImageYUVToRGB(view ? view : image, &rgb);
         if (status != AVIF_RESULT_OK) failed = glimt_fail(out, avifResultToString(status));
     }
+    /* After the pixels, because the shared colour path transforms gray samples
+     * in place and may widen the sample depth while doing it. */
+    if (!failed) failed = glimt_color(out, image->icc.data, image->icc.size, limits);
     if (view) avifImageDestroy(view);
     avifDecoderDestroy(decoder);
     return failed;

@@ -216,8 +216,9 @@ for codec in args.codecs.split(','):
             matches = sorted((BUILD / 'avif').rglob(filename))
             if not matches: raise RuntimeError('Missing AVIF dependency ' + filename)
             archives.append(matches[0])
-        bridge(codec, archives)
-        notices(codec, ['avif', 'aom', 'dav1d', 'yuv'])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
+        bridge(codec, [*archives, PREFIX / 'lib/liblcms2.a'])
+        notices(codec, ['avif', 'aom', 'dav1d', 'yuv', 'lcms'])
     elif codec == 'jpeg':
         cmake('jpeg', ['-DENABLE_SHARED=OFF', '-DWITH_TOOLS=OFF', '-DWITH_TESTS=OFF', '-DREQUIRE_SIMD=ON'])
         meson('lcms', ('-Dtests=disabled', '-Dutils=false'))

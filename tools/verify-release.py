@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / 'native'))
 from source_hash import tree_hash
 
 LOCK = json.loads((ROOT / 'native/sources.json').read_text())
-CODECS = {'avif': ['avif', 'aom', 'dav1d', 'yuv'], 'jpeg': ['jpeg', 'lcms'],
+CODECS = {'avif': ['avif', 'aom', 'dav1d', 'yuv', 'lcms'], 'jpeg': ['jpeg', 'lcms'],
           'jpegli': ['jpegli', 'jpegli-highway', 'jpegli-libjpeg', 'lcms'],
           'png': ['png', 'zlib', 'lcms'], 'webp': ['webp', 'lcms'], 'heic': ['heif', 'de265'],
           'jxl': ['jxl', 'highway', 'brotli', 'lcms'], 'extra': ['magick', 'png', 'zlib', 'lcms'],

@@ -114,7 +114,7 @@ ran in gamma space**, which loses light.
 
 Mean linear-light luminance of a 640 px rendition against its master:
 
-| Image | 0.5.4 | 0.6.0 |
+| Image | 0.5.4 | 0.6.1 |
 | --- | ---: | ---: |
 | Patterned textile bag, 2400 px | −8.00% | −0.54% |
 | Navy sportswear on navy, 1600 px | −4.95% | −0.92% |
@@ -157,7 +157,7 @@ conversions keep their samples.
 ## End to end on the production corpus
 
 Glimt 0.5.4 with ReAI's settings (quality 75, lossless alpha, effort 2, one
-thread) against 0.6.0 with quality 75, alpha quality 90, effort 4 and four
+thread) against 0.6.1 with quality 75, alpha quality 90, effort 4 and four
 threads, both over the same profile-carrying inputs, producing 640 px renditions:
 
 | Group | Images | Before | After | Change |

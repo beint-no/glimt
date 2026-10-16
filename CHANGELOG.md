@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+* Give AVIF input the same colour handling as every other decoder. 0.6.0
+  collapsed sRGB profiles everywhere else, so an AVIF re-encode kept its profile
+  and its unspecified transfer characteristic and still resized in gamma space.
+  That is the path a thumbnail pipeline uses most.
+
 ## 0.6.0
 
 * Tag CICP sRGB instead of carrying an embedded profile that renders as sRGB.

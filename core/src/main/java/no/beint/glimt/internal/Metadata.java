@@ -85,10 +85,12 @@ public record Metadata(int orientation, int frames, int width, int height) {
         for (int i = 0; i < count; i++) {
             int field = (int) offset + 2 + i * 12;
             if (Short.toUnsignedInt(data.getShort(field)) == 0x112) {
-                if (data.getShort(field + 2) != 3 || data.getInt(field + 4) != 1) throw new ImageException("Invalid EXIF orientation field");
-                int value = Short.toUnsignedInt(data.getShort(field + 8));
-                if (value < 1 || value > 8) throw new ImageException("Invalid EXIF orientation");
-                return value;
+                // Cameras and scanners write 0 or a LONG here. Browsers and libjpeg show such files
+                // unrotated, so a malformed tag means no rotation rather than an unreadable image.
+                int type = data.getShort(field + 2);
+                if (data.getInt(field + 4) != 1 || (type != 3 && type != 4)) return 1;
+                int value = type == 3 ? Short.toUnsignedInt(data.getShort(field + 8)) : data.getInt(field + 8);
+                return value >= 1 && value <= 8 ? value : 1;
             }
         }
         return 1;

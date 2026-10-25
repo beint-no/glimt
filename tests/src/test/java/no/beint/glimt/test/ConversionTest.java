@@ -71,6 +71,31 @@ class ConversionTest {
             }
         }
     }
+    @ParameterizedTest @ValueSource(ints = {3, 4})
+    void treatsAZeroOrientationOfEitherTypeAsUnrotated(int type) throws Exception {
+        byte[] source = fixture("orientation-6.jpg");
+        int exif = indexOf(source, "Exif\0\0".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1)) + 6;
+        var tiff = java.nio.ByteBuffer.wrap(source, exif, source.length - exif).slice();
+        tiff.order(tiff.get(0) == 'I' ? java.nio.ByteOrder.LITTLE_ENDIAN : java.nio.ByteOrder.BIG_ENDIAN);
+        int directory = tiff.getInt(4);
+        for (int i = 0, count = tiff.getShort(directory); i < count; i++) {
+            int field = directory + 2 + i * 12;
+            if (tiff.getShort(field) != 0x112) continue;
+            tiff.putShort(field + 2, (short) type);
+            tiff.putInt(field + 8, 0);
+        }
+        var result = FAST.convert(source);
+        assertEquals(97, result.width());
+        assertEquals(73, result.height());
+    }
+    private static int indexOf(byte[] bytes, byte[] pattern) {
+        outer:
+        for (int i = 0; i <= bytes.length - pattern.length; i++) {
+            for (int j = 0; j < pattern.length; j++) if (bytes[i + j] != pattern[j]) continue outer;
+            return i;
+        }
+        throw new AssertionError("pattern not found");
+    }
     @ParameterizedTest @ValueSource(strings = {"animated.gif", "multipage.tiff", "animated.webp", "animated.jxl"})
     void requiresExplicitFrameSelection(String name) throws Exception {
         byte[] source = fixture(name);

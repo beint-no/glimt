@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.3
+
+* Read a malformed EXIF orientation as unrotated instead of failing the image.
+  Phones and scanners write orientation 0, or store the tag as a LONG; browsers
+  and libjpeg show those files unrotated. ReAI had receipt photos and a Shopify
+  product image that could not be converted because of it. A valid value in a
+  LONG tag is still applied, and truncated EXIF is still rejected.
+
 ## 0.6.2
 
 * Update libpng to 1.6.59 for CVE-2026-46675, a use-after-free of zlib input in

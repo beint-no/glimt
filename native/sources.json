@@ -31,9 +31,9 @@
     "sha256": "ed729127097af5000bfeddc6b3e679c4363bb1618ebfc07efb6b47f576471b4b"
   },
   "png": {
-    "version": "1.6.58",
-    "url": "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.58.tar.gz",
-    "sha256": "a9d4df463d36a6e5f9c29bd6f4967312d17e996c1854f3511f833924eb1993cf"
+    "version": "1.6.59",
+    "url": "https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.59.tar.gz",
+    "sha256": "2540302a1844ad2b2b501977abecfa850f265f97b78f065a712ab4074a89f5b5"
   },
   "zlib": {
     "version": "1.3.2",
@@ -46,9 +46,9 @@
     "sha256": "93a852c2b3efafee3723efd4636de855b46f9fe1efddd607e1f42f60fc8f2136"
   },
   "heif": {
-    "version": "1.23.2",
-    "url": "https://github.com/strukturag/libheif/archive/refs/tags/v1.23.2.tar.gz",
-    "sha256": "1405ed070421459b569ff49deab109b7f1a30a447e72a9b20a4154f774634a44",
+    "version": "1.23.6",
+    "url": "https://github.com/strukturag/libheif/archive/refs/tags/v1.23.6.tar.gz",
+    "sha256": "c9a00b0452f5c16d72ef71e5e40c0e90fbe2ad37148d27a1b2f9bb21546f5f03",
     "patches": [
       {
         "file": "heif/0001-memory-reader-empty-read.patch",
@@ -57,9 +57,9 @@
     ]
   },
   "de265": {
-    "version": "1.1.1",
-    "url": "https://github.com/strukturag/libde265/archive/refs/tags/v1.1.1.tar.gz",
-    "sha256": "5b4fac677018e6074196e8f9889f3e4a5310e46afbf22a893f620d4e24d3510e"
+    "version": "1.1.3",
+    "url": "https://github.com/strukturag/libde265/archive/refs/tags/v1.1.3.tar.gz",
+    "sha256": "189baa08fd6d2dd34db099de411bd6b2e6bd5eb88e81236a3d0fa3826b9715c4"
   },
   "lcms": {
     "version": "2.19.1",
@@ -72,9 +72,9 @@
     "sha256": "03e9be69a30be4011f559da75328b6d7cea8ad921fabfbd551ce10bf45cdc992"
   },
   "magick": {
-    "version": "7.1.2-30",
-    "url": "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/7.1.2-30.tar.gz",
-    "sha256": "3034a64f22398e15ee3dd1e6b1aa83d838cfc47df1bb246ae0eca9590e6ace72"
+    "version": "7.1.2-34",
+    "url": "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/7.1.2-34.tar.gz",
+    "sha256": "f5163a573a1c1bff16358d0a592b2fb168ad0fd3b9dc5ff57dc7820eebc5cf79"
   },
   "aom": {
     "version": "3.15.2",

@@ -28,7 +28,13 @@ the minimum supported glibc version.
 `native/sources.json` pins versions/checksums. GitHub archives use SHA-256 of the
 archive. Gitiles archives have changing timestamps, so those entries additionally
 pin a canonical SHA-256 of every path, kind, mode, link target and file content.
-Timestamp changes cannot hide source changes. Source archives and build trees
+Timestamp changes cannot hide source changes.
+Dependabot does not read this file. The weekly `Native upstream releases` workflow
+runs `native/upstream.py`, which compares every tag-pinned source with the newest
+upstream tag of the same shape and keeps one issue open while any is behind.
+`native/upstream.py --update` (optionally `--only png,heif`) rewrites versions,
+URLs and checksums for a pull request. Commit-pinned sources are listed for manual
+review. Source archives and build trees
 live in ignored `native/.work`; outputs in `native/dist/<platform>/<codec>`.
 Any local upstream patches are also checksum-pinned in the source lock, applied
 to a fresh source tree when changed, and included in the corresponding native

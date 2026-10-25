@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2
+
+* Update libpng to 1.6.59 for CVE-2026-46675, a use-after-free of zlib input in
+  `png_read_end` after incomplete zTXt, iTXt or iCCP decompression.
+* Update libheif to 1.23.6, libde265 to 1.1.3 and ImageMagick to 7.1.2-34.
+* Check tag-pinned native sources against upstream weekly. Dependabot cannot read
+  `native/sources.json`; `native/upstream.py` reports newer releases and
+  `--update` rewrites the pins and checksums.
+
 ## 0.6.1
 
 * Give AVIF input the same colour handling as every other decoder. 0.6.0

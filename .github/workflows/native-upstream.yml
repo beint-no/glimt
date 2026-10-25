@@ -1,0 +1,54 @@
+name: Native upstream releases
+# Dependabot cannot read native/sources.json. This keeps one issue open while a
+# tag-pinned codec library has a newer upstream release, and closes it when the
+# pins are current. Apply with: native/upstream.py --update
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: native-upstream
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+          allow-prereleases: true
+      - name: Compare pins with upstream tags
+        id: check
+        run: |
+          if python native/upstream.py --markdown "$RUNNER_TEMP/report.md"; then
+            echo "outdated=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "outdated=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTDATED: ${{ steps.check.outputs.outdated }}
+          TITLE: Native upstream releases available
+        run: |
+          issue=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number // empty')
+          if [ "$OUTDATED" = true ]; then
+            {
+              echo "Newer upstream releases exist for tag-pinned sources in \`native/sources.json\`:"
+              echo
+              cat "$RUNNER_TEMP/report.md"
+              echo
+              echo "Apply locally with \`native/upstream.py --update\` (or \`--only name,...\`), then open a pull request; Verify builds and tests every platform."
+            } > "$RUNNER_TEMP/body.md"
+            if [ -n "$issue" ]; then
+              gh issue edit "$issue" --body-file "$RUNNER_TEMP/body.md"
+            else
+              gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+            fi
+          elif [ -n "$issue" ]; then
+            gh issue close "$issue" --comment "All tag-pinned native sources are current."
+          fi

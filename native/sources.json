@@ -11,9 +11,9 @@
     ]
   },
   "jpeg": {
-    "version": "3.2.0",
-    "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.2.0.tar.gz",
-    "sha256": "980dd81f425082aa6d7c9e47fef27554ce7a9ffc8e2f6e863b97d263c5c50858"
+    "version": "3.2.1",
+    "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/3.2.1.tar.gz",
+    "sha256": "6f5819c51649bce2571a23b1b0cd41eae2f57fc3f8908c7ec9e7047efb65ca13"
   },
   "jpegli": {
     "version": "031a0077f5799a6041004267fc12b956c1f52a20",
@@ -46,9 +46,9 @@
     "sha256": "93a852c2b3efafee3723efd4636de855b46f9fe1efddd607e1f42f60fc8f2136"
   },
   "heif": {
-    "version": "1.23.6",
-    "url": "https://github.com/strukturag/libheif/archive/refs/tags/v1.23.6.tar.gz",
-    "sha256": "c9a00b0452f5c16d72ef71e5e40c0e90fbe2ad37148d27a1b2f9bb21546f5f03",
+    "version": "1.23.7",
+    "url": "https://github.com/strukturag/libheif/archive/refs/tags/v1.23.7.tar.gz",
+    "sha256": "90e389caad285ca4946461d56d1c115e56bcbb5141d9038050282af91064fbc7",
     "patches": [
       {
         "file": "heif/0001-memory-reader-empty-read.patch",
@@ -62,9 +62,9 @@
     "sha256": "189baa08fd6d2dd34db099de411bd6b2e6bd5eb88e81236a3d0fa3826b9715c4"
   },
   "lcms": {
-    "version": "2.19.1",
-    "url": "https://github.com/mm2/Little-CMS/archive/refs/tags/lcms2.19.1.tar.gz",
-    "sha256": "267705e278e2f7c2fb886c259dadcbaeb2be52748bcbc71c79f08aacacb7a709"
+    "version": "2.20",
+    "url": "https://github.com/mm2/Little-CMS/archive/refs/tags/lcms2.20.tar.gz",
+    "sha256": "49908a4492fe7fc886517d636474bd953ebe698d38ecd3ee5862dfa308dd43ae"
   },
   "jxl": {
     "version": "0.12.0",
@@ -72,16 +72,16 @@
     "sha256": "03e9be69a30be4011f559da75328b6d7cea8ad921fabfbd551ce10bf45cdc992"
   },
   "magick": {
-    "version": "7.1.2-34",
-    "url": "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/7.1.2-34.tar.gz",
-    "sha256": "f5163a573a1c1bff16358d0a592b2fb168ad0fd3b9dc5ff57dc7820eebc5cf79"
+    "version": "7.1.2-35",
+    "url": "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/7.1.2-35.tar.gz",
+    "sha256": "40b6fefa88fe16ca5a4b3d3db5133eaebfb0157f21f98530bde8aec5dd5b0776"
   },
   "aom": {
-    "version": "3.15.2",
-    "url": "https://aomedia.googlesource.com/aom/+archive/refs/tags/v3.15.2.tar.gz",
-    "sha256": "eab9ecffd76e2542190df616fb6d01c6b5841185f8403f0eaf475e4c98cbb23e",
+    "version": "3.15.3",
+    "url": "https://aomedia.googlesource.com/aom/+archive/refs/tags/v3.15.3.tar.gz",
+    "sha256": "164ea0ad2ec0b89bcbdbac4e362b585b29ce2541b224cc7be54e215fe95fc1dd",
     "strip": false,
-    "tree_sha256": "052d271c0611be6a57651f1ccff068b31cbe8f6f426916b7475bf0afa9f005f9"
+    "tree_sha256": "14670a4163512f40054ee1b27820904d1e1f59106cc617e6e0015832c96daea1"
   },
   "yuv": {
     "version": "644251f252a84bf8ce91ff0aca86a9b16b069ab8",

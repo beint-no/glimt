@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.15"
-# dependencies = ["meson==1.10.0"]
+# dependencies = ["meson==1.12.1"]
 # ///
 """Build Glimt's native codecs from pinned source. No host codec is used."""
 import argparse

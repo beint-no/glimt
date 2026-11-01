@@ -2,7 +2,7 @@
 
 Install JDK 27, [uv](https://docs.astral.sh/uv/), C/C++ compilers, CMake, Ninja,
 pkg-config, Make, patch, and NASM on x86-64. The scripts declare Python 3.15 and, for
-`native/build.py`, Meson 1.10.0 as inline script metadata; uv provides both. Linux needs patchelf and Perl. macOS uses the
+`native/build.py`, Meson 1.12.1 as inline script metadata; uv provides both. Linux needs patchelf and Perl. macOS uses the
 Command Line Tools for install-name editing and ad hoc signing.
 
 These instructions and the repository Dockerfiles are for Glimt maintainers.

@@ -67,7 +67,7 @@ default, so there are no exclusions or filename filters:
 
 ```kotlin
 dependencies {
-    implementation("no.beint.glimt:all:0.6.3") {
+    implementation("no.beint.glimt:all:0.6.4") {
         capabilities {
             requireCapability("no.beint.glimt:all-platform-macos-arm64")
         }
@@ -78,7 +78,7 @@ dependencies {
 Selective codec bundles use the same convention on every Glimt dependency:
 
 ```kotlin
-val glimt = "0.6.3"
+val glimt = "0.6.4"
 dependencies {
     implementation("no.beint.glimt:jpegli:$glimt") {
         capabilities {

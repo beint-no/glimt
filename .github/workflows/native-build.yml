@@ -43,7 +43,7 @@ jobs:
       - name: macOS build prerequisites
         if: runner.os == 'macOS'
         run: brew install cmake ninja pkg-config nasm
-      - run: python -m pip install meson==1.10.0
+      - run: python -m pip install meson==1.12.1
       - name: Build native codecs
         run: python native/build.py --platform '${{ matrix.platform }}' --jobs 3
       - name: Verify Java and codecs

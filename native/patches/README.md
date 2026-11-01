@@ -11,8 +11,8 @@ Current patches:
 
 * `heif/0001-memory-reader-empty-read.patch` prevents unsigned range overflow
   and zero-length `memcpy` calls with null pointers in libheif's memory reader.
-  The issue remained in libheif 1.23.2 and upstream source when audited on
-  2026-08-28.
+  libheif 1.23.7 avoids the null `memcpy`, but its `m_position + size` range
+  check can still overflow.
 * `stb/0001-defined-srgb-simd-table-lookup.patch` avoids forming a pointer far
   outside stb_image_resize2's sRGB lookup-table object. UBSan reports the
   upstream expression even though later index arithmetic points back into the

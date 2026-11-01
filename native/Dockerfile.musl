@@ -9,7 +9,7 @@ FROM alpine:3.23 AS tested
 RUN apk add --no-cache build-base cmake ninja nasm python3 py3-pip pkgconf patchelf patch git perl linux-headers fontconfig freetype
 COPY --from=jdk /jdk-copy /opt/jdk
 ENV JAVA_HOME=/opt/jdk PATH=/opt/jdk/bin:/opt/tools/bin:$PATH
-RUN python3 -m venv /opt/tools && /opt/tools/bin/pip install meson==1.10.0
+RUN python3 -m venv /opt/tools && /opt/tools/bin/pip install meson==1.12.1
 WORKDIR /work
 COPY . .
 RUN python3 native/build.py --platform linux-x64-musl --jobs 4

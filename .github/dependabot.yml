@@ -1,34 +1,42 @@
 version: 2
 updates:
-  - package-ecosystem: gradle
-    directory: /
-    schedule:
-      interval: weekly
-    groups:
-      java-tooling:
-        patterns: ["*"]
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-    groups:
-      github-actions:
-        patterns: ["*"]
-  - package-ecosystem: docker
-    directory: /native
-    schedule:
-      interval: weekly
-    groups:
-      native-build-images:
-        patterns: ["*"]
-    ignore:
-      - dependency-name: "bellsoft/hardened-base"
-  - package-ecosystem: docker
-    directory: /tools
-    schedule:
-      interval: weekly
-    groups:
-      verification-images:
-        patterns: ["*"]
-    ignore:
-      - dependency-name: "bellsoft/hardened-base"
+- package-ecosystem: gradle
+  directory: /
+  schedule:
+    interval: weekly
+    time: 04:00
+  groups:
+    java-tooling:
+      patterns:
+      - '*'
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
+    time: 04:00
+  groups:
+    github-actions:
+      patterns:
+      - '*'
+- package-ecosystem: docker
+  directory: /native
+  schedule:
+    interval: weekly
+    time: 04:00
+  groups:
+    native-build-images:
+      patterns:
+      - '*'
+  ignore:
+  - dependency-name: bellsoft/hardened-base
+- package-ecosystem: docker
+  directory: /tools
+  schedule:
+    interval: weekly
+    time: 04:00
+  groups:
+    verification-images:
+      patterns:
+      - '*'
+  ignore:
+  - dependency-name: bellsoft/hardened-base

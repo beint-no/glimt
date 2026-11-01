@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.4
+
+* Update libheif to 1.23.7, a security release fixing fourteen high-rated
+  issues, among them a use-after-free when grid tiles decode in parallel and
+  CPU exhaustion through crafted derived images, coded pictures and
+  transformations. Decoding now refuses such files as a security limit.
+* Update libjpeg-turbo to 3.2.1, which fixes CVE-2026-75466, buffer overruns
+  in rarely used decompression paths and wrong scanline skipping with
+  non-fancy upsampling.
+* Update Little CMS to 2.20 (fixes a possible crash with malformed profiles),
+  libaom to 3.15.3 (encoder integer overflow), ImageMagick to 7.1.2-35 and the
+  Meson build tool to 1.12.1.
+
 ## 0.6.3
 
 * Read a malformed EXIF orientation as unrotated instead of failing the image.

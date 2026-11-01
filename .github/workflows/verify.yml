@@ -57,7 +57,7 @@ jobs:
       - name: macOS build prerequisites
         if: runner.os == 'macOS'
         run: brew install cmake ninja pkg-config nasm
-      - run: python -m pip install meson==1.10.0
+      - run: python -m pip install meson==1.12.1
       - name: Build native codecs
         run: python native/build.py --platform '${{ matrix.platform }}' --jobs 3
       - name: Verify Java and codecs
@@ -108,7 +108,7 @@ jobs:
           python-version: '3.15'
           allow-prereleases: true
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build nasm pkg-config patchelf clang patch
-      - run: python -m pip install meson==1.10.0
+      - run: python -m pip install meson==1.12.1
       - name: Restore instrumented dependency build cache
         id: sanitizer-cache
         uses: actions/cache/restore@v6

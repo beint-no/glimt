@@ -39,7 +39,6 @@ ENV = os.environ.copy()
 ENV['PKG_CONFIG_LIBDIR'] = str(PREFIX / 'lib/pkgconfig')
 ENV['PKG_CONFIG_PATH'] = str(PREFIX / 'lib/pkgconfig')
 ENV['CMAKE_PREFIX_PATH'] = str(PREFIX)
-ENV['PATH'] = str(WORK / 'tools/bin') + os.pathsep + ENV['PATH']
 if args.sanitize:
     for variable in ('CFLAGS', 'CXXFLAGS', 'LDFLAGS'):
         ENV[variable] = '-fsanitize=address,undefined -fno-omit-frame-pointer'

@@ -1,3 +1,9 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# dependencies = []
+# ///
+
 """Verify that streaming source checks retain the published canonical hashes."""
 import hashlib
 import io

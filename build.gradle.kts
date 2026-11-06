@@ -45,15 +45,13 @@ abstract class VerifyPlatformVariants : DefaultTask() {
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
 allprojects { group = "no.beint.glimt"; version = "0.6.4" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
-// Gradle runs these with the host python3, including inside the Alpine images, which
-// have no Python 3.15 yet; keep these scripts free of 3.15-only syntax until they do.
 val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
     description = "Checks documentation links and consumer coordinates against the release version."
-    commandLine("python3", "tools/verify-docs.py", version.toString())
+    commandLine("python3.15", "tools/verify-docs.py", version.toString())
 }
 val verifyNativeBuildTools = tasks.register<Exec>("verifyNativeBuildTools") {
     description = "Checks canonical native source hashing."
-    commandLine("python3", "-m", "unittest", "discover", "-s", "native", "-p", "test_*.py")
+    commandLine("python3.15", "-m", "unittest", "discover", "-s", "native", "-p", "test_*.py")
 }
 
 val codecs = listOf("avif", "jpeg", "jpegli", "png", "webp", "heic", "jxl", "extra", "resize")
@@ -79,7 +77,7 @@ val nativeSources = mapOf(
 )
 val verifyNativeRelease = tasks.register<Exec>("verifyNativeRelease") {
     description = "Refuse publishing incomplete native distributions or missing corresponding sources."
-    commandLine("python3", "tools/verify-release.py")
+    commandLine("python3.15", "tools/verify-release.py")
 }
 subprojects {
     apply(plugin = "java-library")

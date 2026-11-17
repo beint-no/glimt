@@ -80,7 +80,7 @@ static unsigned glimt_jpeg_blend(unsigned sample, unsigned alpha, unsigned backg
 extern "C" {
 
 API const char *glimt_version(void) {
-    return "JPEGli 031a0077f5799a6041004267fc12b956c1f52a20";
+    return "JPEGli " GLIMT_SOURCE_VERSION;
 }
 
 API int glimt_encode(const glimt_image *in, const glimt_encode_options *options, glimt_image *out) {

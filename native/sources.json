@@ -16,9 +16,9 @@
     "sha256": "6f5819c51649bce2571a23b1b0cd41eae2f57fc3f8908c7ec9e7047efb65ca13"
   },
   "jpegli": {
-    "version": "031a0077f5799a6041004267fc12b956c1f52a20",
-    "url": "https://github.com/google/jpegli/archive/031a0077f5799a6041004267fc12b956c1f52a20.tar.gz",
-    "sha256": "269b3a75d6b2da2351f7fb2d642043f60f9b6d1bd5839f20c0d7c569be073367"
+    "version": "1d0b3565dd6f9fe933f9d40bf89dd2cd4fb26234",
+    "url": "https://github.com/google/jpegli/archive/1d0b3565dd6f9fe933f9d40bf89dd2cd4fb26234.tar.gz",
+    "sha256": "20086aaa34453e157e7a31906594dff2653b629cea8314b91022968267220ddd"
   },
   "jpegli-highway": {
     "version": "271a9a0ed9de1232d9117f1572c3fe28f8542ec1",
@@ -36,9 +36,9 @@
     "sha256": "2540302a1844ad2b2b501977abecfa850f265f97b78f065a712ab4074a89f5b5"
   },
   "zlib": {
-    "version": "1.3.2",
-    "url": "https://github.com/madler/zlib/archive/refs/tags/v1.3.2.tar.gz",
-    "sha256": "b99a0b86c0ba9360ec7e78c4f1e43b1cbdf1e6936c8fa0f6835c0cd694a495a1"
+    "version": "1.4",
+    "url": "https://github.com/madler/zlib/archive/refs/tags/v1.4.tar.gz",
+    "sha256": "4331355048e286908260fdbeaa0b8cf75ceaf2907c75855a093a6487c7032aaa"
   },
   "webp": {
     "version": "1.6.0",
@@ -67,14 +67,14 @@
     "sha256": "49908a4492fe7fc886517d636474bd953ebe698d38ecd3ee5862dfa308dd43ae"
   },
   "jxl": {
-    "version": "0.12.0",
-    "url": "https://github.com/libjxl/libjxl/archive/refs/tags/v0.12.0.tar.gz",
-    "sha256": "03e9be69a30be4011f559da75328b6d7cea8ad921fabfbd551ce10bf45cdc992"
+    "version": "0.13.0",
+    "url": "https://github.com/libjxl/libjxl/archive/refs/tags/v0.13.0.tar.gz",
+    "sha256": "24d18c9af2d1f5a17730b3f8d3f70a5c16e5ac303f5d9d5fe9dc00cf7ca82af2"
   },
   "magick": {
-    "version": "7.1.2-35",
-    "url": "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/7.1.2-35.tar.gz",
-    "sha256": "40b6fefa88fe16ca5a4b3d3db5133eaebfb0157f21f98530bde8aec5dd5b0776"
+    "version": "7.1.2-36",
+    "url": "https://github.com/ImageMagick/ImageMagick/archive/refs/tags/7.1.2-36.tar.gz",
+    "sha256": "5ba807e38a6bcb7c3c96a166485e270c5017aaa6b166f0440dc4b2badf6e6167"
   },
   "aom": {
     "version": "3.15.3",
@@ -84,22 +84,22 @@
     "tree_sha256": "14670a4163512f40054ee1b27820904d1e1f59106cc617e6e0015832c96daea1"
   },
   "yuv": {
-    "version": "644251f252a84bf8ce91ff0aca86a9b16b069ab8",
-    "url": "https://chromium.googlesource.com/libyuv/libyuv/+archive/644251f252a84bf8ce91ff0aca86a9b16b069ab8.tar.gz",
-    "sha256": "464ca71692b4bf761dface560e34472364742a5f582e83d5579ceebe2b0633cb",
+    "version": "6c353fe691509afe8501424e8ac6845712eb6d83",
+    "url": "https://chromium.googlesource.com/libyuv/libyuv/+archive/6c353fe691509afe8501424e8ac6845712eb6d83.tar.gz",
+    "sha256": "aa7f9c9ab65b235bcd80a0c89ff2c72a9c88200ba087d82e29c6ab3db4ffa58b",
     "strip": false,
-    "tree_sha256": "67ab62752d0f6af2306602833ffa9f7c096ce79b724ab2b792caf0c12ec0ef1e"
+    "tree_sha256": "61566d9140665f202cbaa0950a946328c891647710885ae5b80db355d9242960"
   },
   "dav1d": {
-    "version": "1.5.4",
-    "url": "https://github.com/videolan/dav1d/archive/refs/tags/1.5.4.tar.gz",
-    "sha256": "a1d5b63d2d38ec9bd03acf643caa51fa22edd1e89c5a109c4807717216bbec07",
+    "version": "1.5.5",
+    "url": "https://github.com/videolan/dav1d/archive/refs/tags/1.5.5.tar.gz",
+    "sha256": "76ad07ab121d68407b64a6f50f540c90ca0b066d178bdc9adbea14acf4ce25a9",
     "strip": true
   },
   "brotli": {
-    "version": "028fb5a23661f123017c060daa546b55cf4bde29",
-    "url": "https://github.com/google/brotli/archive/028fb5a23661f123017c060daa546b55cf4bde29.tar.gz",
-    "sha256": "0afe09a53c8bad9861c8dd1fc1284308d54f19d2979ba3541cfdcc9b05fe360f"
+    "version": "db24a98aed38a16de78cc05ca15cdd8dc2a0d92d",
+    "url": "https://github.com/google/brotli/archive/db24a98aed38a16de78cc05ca15cdd8dc2a0d92d.tar.gz",
+    "sha256": "113b9685dfc14dd2f3360d077283266eec2fbdfb0fe3e5600f11be151da0d68e"
   },
   "highway": {
     "version": "457c891775a7397bdb0376bb1031e6e027af1c48",

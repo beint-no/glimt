@@ -25,7 +25,7 @@ static void initialize(void) {
         "</policymap>", error) != MagickFalse;
     DestroyExceptionInfo(error);
 }
-API const char *glimt_version(void) { return "ImageMagick 7.1.2-30 (restricted raster readers)"; }
+API const char *glimt_version(void) { return MagickPackageName " " MagickLibVersionText MagickLibAddendum " (restricted raster readers)"; }
 API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *limits, glimt_image *out) {
     glimt_init(out);
     const char *format = NULL;

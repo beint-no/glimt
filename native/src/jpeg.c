@@ -1,7 +1,7 @@
 #include "glimt.h"
 #include <turbojpeg.h>
 #include "color.h"
-API const char *glimt_version(void) { return "libjpeg-turbo 3.2.0"; }
+API const char *glimt_version(void) { return "libjpeg-turbo " GLIMT_SOURCE_VERSION; }
 static int adobe_marker(const uint8_t *data, size_t size) {
     size_t pos = 2;
     while (pos + 4 <= size && data[pos] == 255) {

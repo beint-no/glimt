@@ -157,6 +157,8 @@ def bridge(codec, libraries, shared=(), cflags=()):
     standard = '-std=c++17' if cpp else '-std=c11'
     instrumentation = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
     optimization = ['-O1', '-g', *instrumentation] if args.sanitize else ['-O3']
+    if codec in LOCK:
+        cflags = [*cflags, f'-DGLIMT_SOURCE_VERSION="{LOCK[codec]["version"]}"']
     run([compiler, standard, *optimization, '-fPIC', '-fvisibility=hidden', '-Wall', '-Wextra', '-Werror',
          '-I' + str(PREFIX / 'include'), *cflags, '-c', source_file, '-o', obj])
     suffix = 'dylib' if platform.system() == 'Darwin' else 'so'

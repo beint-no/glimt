@@ -18,7 +18,7 @@ static void jxl_free(void *opaque, void *address) {
     allocation *p = (allocation *)address - 1;
     ((budget *)opaque)->used -= p->size; free(p);
 }
-API const char *glimt_version(void) { return "libjxl 0.12.0"; }
+API const char *glimt_version(void) { return "libjxl " GLIMT_SOURCE_VERSION; }
 API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *limits, glimt_image *out) {
     glimt_init(out); out->frames = 0;
     budget memory = {0, (size_t)limits->max_decoded_bytes};

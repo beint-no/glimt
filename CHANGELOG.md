@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+* Update dav1d to 1.5.5 for AVIF decoding fixes and x86 and ARM optimizations.
+  Refresh libyuv for colour conversion fixes and JPEGli for Huffman table initialization.
+* Update zlib to 1.4 and ImageMagick to 7.1.2-36 for upstream correctness
+  and security fixes.
+* Update libjxl to 0.13.0 and its pinned Brotli dependency to 1.2.1 for
+  decoder fixes.
+
 ## 0.6.4
 
 * Update libheif to 1.23.7, a security release fixing fourteen high-rated

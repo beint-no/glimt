@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.5
 
 * Update dav1d to 1.5.5 for AVIF decoding fixes and x86 and ARM optimizations.
   Refresh libyuv for colour conversion fixes and JPEGli for Huffman table initialization.

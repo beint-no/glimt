@@ -51,9 +51,9 @@ static int glimt_profile_renders_as_srgb(cmsHPROFILE profile, uint32_t depth) {
  * the public pixel ABI is RGBA, and an AVIF RGB image cannot carry a gray ICC. */
 static int glimt_color(glimt_image *out, const void *bytes, size_t size, const glimt_limits *limits) {
     if (!size) return 0;
-    if (size > limits->max_metadata_bytes || size > UINT32_MAX) return glimt_fail(out, "Oversized colour profile");
+    if (size > limits->max_metadata_bytes || size > UINT32_MAX) return glimt_fail_code(out, GLIMT_ERR_LIMITS, "Oversized colour profile");
     cmsHPROFILE profile = cmsOpenProfileFromMem(bytes, (cmsUInt32Number)size);
-    if (!profile) return glimt_fail(out, "Invalid ICC colour profile");
+    if (!profile) return glimt_fail_code(out, GLIMT_ERR_INVALID_INPUT, "Invalid ICC colour profile");
     cmsColorSpaceSignature color = cmsGetColorSpace(profile);
     if (color == cmsSigRgbData) {
         /* Carrying a profile that renders as sRGB costs every encoded image
@@ -66,7 +66,7 @@ static int glimt_color(glimt_image *out, const void *bytes, size_t size, const g
         out->primaries = 2; out->transfer = 2;
         return glimt_icc(out, bytes, size, limits);
     }
-    if (color != cmsSigGrayData) { cmsCloseProfile(profile); return glimt_fail(out, "ICC profile does not describe RGB or gray pixels"); }
+    if (color != cmsSigGrayData) { cmsCloseProfile(profile); return glimt_fail_code(out, GLIMT_ERR_UNSUPPORTED, "ICC profile does not describe RGB or gray pixels"); }
     const int wide = out->depth > 8;
     cmsHPROFILE srgb = cmsCreate_sRGBProfile();
     cmsHTRANSFORM transform = srgb ? cmsCreateTransform(profile, wide ? TYPE_GRAY_16 : TYPE_GRAY_8,

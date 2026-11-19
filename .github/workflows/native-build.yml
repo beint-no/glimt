@@ -39,7 +39,7 @@ jobs:
           cache-disabled: true
       - name: Linux build prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build nasm pkg-config patchelf
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build nasm pkg-config patchelf patch
       - name: macOS build prerequisites
         if: runner.os == 'macOS'
         run: brew install cmake ninja pkg-config nasm

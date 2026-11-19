@@ -8,8 +8,10 @@ import java.lang.foreign.ValueLayout;
 import javax.imageio.ImageIO;
 import no.beint.glimt.DecodeLimits;
 import no.beint.glimt.FramePolicy;
+import no.beint.glimt.ImageException;
 import no.beint.glimt.ImageFormat;
 import no.beint.glimt.imageio.JdkImageDecoder;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,5 +52,40 @@ class JdkImageDecoderTest {
                 }
             }
         } finally { expected.flush(); }
+    }
+
+    @Test
+    void wrapsMalformedJdkImageIoRuntimeExceptionsAsImageException() {
+        // Malformed BMP with bitfields/invalid masks and malformed TIFF/GIF headers that can
+        // provoke RuntimeExceptions (RasterFormatException, IllegalArgumentException, NPE) in JDK ImageIO.
+        byte[] malformedBmp = new byte[66];
+        malformedBmp[0] = 'B'; malformedBmp[1] = 'M';
+        malformedBmp[2] = 66;
+        malformedBmp[10] = 66; // pixel data offset
+        malformedBmp[14] = 40; // BITMAPINFOHEADER
+        malformedBmp[18] = 1;  // width = 1
+        malformedBmp[22] = 1;  // height = 1
+        malformedBmp[26] = 1;  // planes = 1
+        malformedBmp[28] = 32; // bpp = 32
+        malformedBmp[30] = 3;  // BI_BITFIELDS with zero masks -> RasterFormatException/IllegalArgumentException in JDK BMPImageReader
+
+        byte[] malformedGif = {'G', 'I', 'F', '8', '9', 'a', 1, 0, 1, 0, 0, 0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 0};
+
+        byte[] malformedTiff = {'I', 'I', 42, 0, 8, 0, 0, 0, 1, 0, 0, 1, 4, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
+
+        var decoder = new JdkImageDecoder();
+        try (Arena arena = Arena.ofConfined()) {
+            var bmpErr = assertThrows(ImageException.class, () -> decoder.decode(
+                arena.allocateFrom(ValueLayout.JAVA_BYTE, malformedBmp), ImageFormat.BMP, DecodeLimits.DEFAULT, FramePolicy.REJECT, arena));
+            assertEquals(ImageException.Reason.INVALID_INPUT, bmpErr.reason());
+
+            var gifErr = assertThrows(ImageException.class, () -> decoder.decode(
+                arena.allocateFrom(ValueLayout.JAVA_BYTE, malformedGif), ImageFormat.GIF, DecodeLimits.DEFAULT, FramePolicy.REJECT, arena));
+            assertEquals(ImageException.Reason.INVALID_INPUT, gifErr.reason());
+
+            var tiffErr = assertThrows(ImageException.class, () -> decoder.decode(
+                arena.allocateFrom(ValueLayout.JAVA_BYTE, malformedTiff), ImageFormat.TIFF, DecodeLimits.DEFAULT, FramePolicy.REJECT, arena));
+            assertEquals(ImageException.Reason.INVALID_INPUT, tiffErr.reason());
+        }
     }
 }

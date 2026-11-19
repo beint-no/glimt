@@ -48,9 +48,33 @@ public record AvifOptions(int quality, int alphaQuality, int effort, int threads
      */
     public AvifOptions withEffort(int value) { return new AvifOptions(quality, alphaQuality, value, threads, bitDepth, chroma, lossless, maxOutputBytes); }
     /**
+     * Changes maximum codec threads per conversion.
+     * @param value threads from 1 through 64
+     * @return a copy with the selected thread count
+     */
+    public AvifOptions withThreads(int value) { return new AvifOptions(quality, alphaQuality, effort, value, bitDepth, chroma, lossless, maxOutputBytes); }
+    /**
+     * Changes output sample bit depth.
+     * @param value 0 to retain input depth up to 12 bits, or 8, 10 or 12
+     * @return a copy with the selected bit depth
+     */
+    public AvifOptions withBitDepth(int value) { return new AvifOptions(quality, alphaQuality, effort, threads, value, chroma, lossless, maxOutputBytes); }
+    /**
+     * Changes colour subsampling.
+     * @param value chroma subsampling
+     * @return a copy with the selected chroma subsampling
+     */
+    public AvifOptions withChroma(Chroma value) { return new AvifOptions(quality, alphaQuality, effort, threads, bitDepth, value, lossless, maxOutputBytes); }
+    /**
      * Changes lossless mode.
      * @param value whether lossless mode is enabled
      * @return a copy with lossless mode enabled or disabled
      */
     public AvifOptions withLossless(boolean value) { return new AvifOptions(quality, alphaQuality, effort, threads, bitDepth, chroma, value, maxOutputBytes); }
+    /**
+     * Changes the encoded-size limit.
+     * @param value maximum encoded AVIF size
+     * @return a copy with the selected output limit
+     */
+    public AvifOptions withMaxOutputBytes(long value) { return new AvifOptions(quality, alphaQuality, effort, threads, bitDepth, chroma, lossless, value); }
 }

@@ -19,17 +19,20 @@ public record Metadata(int orientation, int frames, int width, int height) {
                 int marker = input[pos++] & 255;
                 if (marker == 0xda || marker == 0xd9) break;
                 if (marker == 1 || marker >= 0xd0 && marker <= 0xd7) continue;
-                if (pos + 2 > input.length) throw new ImageException("Truncated JPEG marker");
+                if (pos + 2 > input.length) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated JPEG marker");
                 int length = (input[pos] & 255) * 256 + (input[pos + 1] & 255);
-                if (length < 2 || length > input.length - pos) throw new ImageException("Invalid JPEG marker size");
-                if (marker == 0xe1 && Formats.text(input, pos + 2, "Exif\0\0")) orientation = exif(input, pos + 8, length - 8);
+                if (length < 2 || length > input.length - pos) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid JPEG marker size");
+                if (marker == 0xe1 && Formats.text(input, pos + 2, "Exif\0\0")) {
+                    int parsed = exif(input, pos + 8, length - 8);
+                    if (parsed != 0 && orientation == 1) orientation = parsed;
+                }
                 if (isStartOfFrame(marker)) {
-                    if (length < 8) throw new ImageException("Invalid JPEG frame header");
+                    if (length < 8) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid JPEG frame header");
                     int frameHeight = (input[pos + 3] & 255) * 256 + (input[pos + 4] & 255);
                     int frameWidth = (input[pos + 5] & 255) * 256 + (input[pos + 6] & 255);
-                    if (frameWidth < 1 || frameHeight < 1) throw new ImageException("Invalid JPEG dimensions");
+                    if (frameWidth < 1 || frameHeight < 1) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid JPEG dimensions");
                     if (width != 0 && (width != frameWidth || height != frameHeight))
-                        throw new ImageException("Conflicting JPEG frame dimensions");
+                        throw new ImageException(ImageException.Reason.INVALID_INPUT, "Conflicting JPEG frame dimensions");
                     width = frameWidth; height = frameHeight;
                 }
                 pos += length;
@@ -38,15 +41,17 @@ public record Metadata(int orientation, int frames, int width, int height) {
             int pos = 8;
             while (pos + 12 <= input.length) {
                 long size = Formats.unsignedInt(input, pos);
-                if (size > input.length - pos - 12) throw new ImageException("Truncated PNG chunk");
+                if (size > input.length - pos - 12) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated PNG chunk");
                 if (Formats.text(input, pos + 4, "eXIf")) {
-                    if (size > limits.maxMetadataBytes()) throw new ImageException("Oversized EXIF metadata");
-                    orientation = exif(input, pos + 8, (int) size);
+                    if (size > limits.maxMetadataBytes()) throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "Oversized EXIF metadata");
+                    int parsed = exif(input, pos + 8, (int) size);
+                    if (parsed != 0 && orientation == 1) orientation = parsed;
                 }
                 if (Formats.text(input, pos + 4, "acTL")) {
-                    if (size != 8) throw new ImageException("Invalid APNG animation control");
+                    if (size != 8) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG animation control");
                     long count = Formats.unsignedInt(input, pos + 8);
-                    if (count < 1 || count > limits.maxFrames()) throw new ImageException("APNG frame count exceeds configured limit");
+                    if (count < 1) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG frame count");
+                    if (count > limits.maxFrames()) throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "APNG frame count exceeds configured limit");
                     frames = (int) count;
                 }
                 pos += 12 + (int) size;
@@ -55,14 +60,15 @@ public record Metadata(int orientation, int frames, int width, int height) {
             int pos = 12;
             while (pos + 8 <= input.length) {
                 long size = Integer.toUnsignedLong(ByteBuffer.wrap(input, pos + 4, 4).order(ByteOrder.LITTLE_ENDIAN).getInt());
-                if (size > input.length - pos - 8) throw new ImageException("Truncated WebP chunk");
+                if (size > input.length - pos - 8) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated WebP chunk");
                 if (Formats.text(input, pos, "EXIF")) {
-                    if (size > limits.maxMetadataBytes()) throw new ImageException("Oversized EXIF metadata");
+                    if (size > limits.maxMetadataBytes()) throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "Oversized EXIF metadata");
                     int prefix = Formats.text(input, pos + 8, "Exif\0\0") ? 6 : 0;
-                    orientation = exif(input, pos + 8 + prefix, (int) size - prefix);
+                    int parsed = exif(input, pos + 8 + prefix, (int) size - prefix);
+                    if (parsed != 0 && orientation == 1) orientation = parsed;
                 }
                 long next = pos + 8L + size + (size & 1);
-                if (next > input.length) throw new ImageException("Truncated WebP padding");
+                if (next > input.length) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated WebP padding");
                 pos = (int) next;
             }
         }
@@ -72,16 +78,16 @@ public record Metadata(int orientation, int frames, int width, int height) {
         return marker >= 0xc0 && marker <= 0xcf && marker != 0xc4 && marker != 0xc8 && marker != 0xcc;
     }
     private static int exif(byte[] bytes, int start, int size) {
-        if (size < 8 || start < 0 || size > bytes.length - start) throw new ImageException("Truncated EXIF header");
+        if (size < 8 || start < 0 || size > bytes.length - start) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated EXIF header");
         ByteBuffer data = ByteBuffer.wrap(bytes, start, size).slice();
         if (data.get(0) == 'I' && data.get(1) == 'I') data.order(ByteOrder.LITTLE_ENDIAN);
         else if (data.get(0) == 'M' && data.get(1) == 'M') data.order(ByteOrder.BIG_ENDIAN);
-        else throw new ImageException("Invalid EXIF byte order");
-        if (data.getShort(2) != 42) throw new ImageException("Invalid EXIF header");
+        else throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid EXIF byte order");
+        if (data.getShort(2) != 42) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid EXIF header");
         long offset = Integer.toUnsignedLong(data.getInt(4));
-        if (offset < 8 || offset > size - 2L) throw new ImageException("Invalid EXIF directory offset");
+        if (offset < 8 || offset > size - 2L) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid EXIF directory offset");
         int count = Short.toUnsignedInt(data.getShort((int) offset));
-        if (offset + 2L + 12L * count > size) throw new ImageException("Truncated EXIF directory");
+        if (offset + 2L + 12L * count > size) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated EXIF directory");
         for (int i = 0; i < count; i++) {
             int field = (int) offset + 2 + i * 12;
             if (Short.toUnsignedInt(data.getShort(field)) == 0x112) {
@@ -93,6 +99,6 @@ public record Metadata(int orientation, int frames, int width, int height) {
                 return value >= 1 && value <= 8 ? value : 1;
             }
         }
-        return 1;
+        return 0;
     }
 }

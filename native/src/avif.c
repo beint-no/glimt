@@ -1,6 +1,20 @@
 #include "color.h"
 #include <avif/avif.h>
 
+static int avif_fail(glimt_image *out, const avifDecoder *decoder, avifResult status) {
+    const char *diag = decoder && decoder->diag.error[0] ? decoder->diag.error : NULL;
+    if (diag) {
+        if (strstr(diag, "dimensions are too large") || strstr(diag, "dimensions too large") ||
+            strstr(diag, "imageDimensionLimit") || strstr(diag, "imageSizeLimit")) {
+            return glimt_fail_code(out, GLIMT_ERR_DIMENSIONS, diag);
+        }
+        if (strstr(diag, "imageCountLimit")) {
+            return glimt_fail_code(out, GLIMT_ERR_LIMITS, diag);
+        }
+    }
+    return glimt_fail(out, avifResultToString(status));
+}
+
 API const char *glimt_version(void) { return avifVersion(); }
 API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *limits, glimt_image *out) {
     glimt_init(out);
@@ -14,15 +28,18 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     avifResult status = avifDecoderSetIOMemory(decoder, data, (size_t)size);
     if (status == AVIF_RESULT_OK) status = avifDecoderParse(decoder);
     if (status != AVIF_RESULT_OK) {
-        glimt_fail(out, avifResultToString(status)); avifDecoderDestroy(decoder); return 1;
+        int code = avif_fail(out, decoder, status);
+        avifDecoderDestroy(decoder); return code;
     }
     out->frames = (uint32_t)decoder->imageCount;
-    if (glimt_frames(out, limits)) { avifDecoderDestroy(decoder); return 1; }
+    int failed = glimt_frames(out, limits);
+    if (failed) { avifDecoderDestroy(decoder); return failed; }
     out->width = decoder->image->width; out->height = decoder->image->height; out->depth = decoder->image->depth;
-    if (glimt_dimensions(out, limits)) { avifDecoderDestroy(decoder); return 1; }
+    if ((failed = glimt_dimensions(out, limits)) != 0) { avifDecoderDestroy(decoder); return failed; }
     status = avifDecoderNextImage(decoder);
     if (status != AVIF_RESULT_OK) {
-        glimt_fail(out, avifResultToString(status)); avifDecoderDestroy(decoder); return 1;
+        int code = avif_fail(out, decoder, status);
+        avifDecoderDestroy(decoder); return code;
     }
     const avifImage *image = decoder->image;
     out->alpha = image->alphaPlane != NULL;
@@ -45,7 +62,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     const unsigned rotations[] = {1, 8, 3, 6};
     const unsigned mirrors[2][4] = {{4, 5, 2, 7}, {2, 7, 4, 5}};
     out->orientation = (image->transformFlags & AVIF_TRANSFORM_IMIR) ? mirrors[image->imir.axis & 1][angle & 3] : rotations[angle & 3];
-    int failed = glimt_allocate(out, limits);
+    failed = glimt_allocate(out, limits);
     if (!failed) {
         avifRGBImage rgb; avifRGBImageSetDefaults(&rgb, view ? view : image);
         rgb.format = AVIF_RGB_FORMAT_RGBA; rgb.depth = out->depth;
@@ -97,7 +114,7 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
     if (status == AVIF_RESULT_OK) status = avifEncoderWrite(encoder, image, &encoded);
     int failed = 0;
     if (status != AVIF_RESULT_OK) failed = glimt_fail(out, avifResultToString(status));
-    else if (encoded.size > options->max_output_bytes) failed = glimt_fail(out, "Encoded AVIF exceeds configured output limit");
+    else if (encoded.size > options->max_output_bytes) failed = glimt_fail_code(out, GLIMT_ERR_OUTPUT_LIMIT, "Encoded AVIF exceeds configured output limit");
     else {
         // Bundled libavif's avifAlloc/avifFree are malloc/free. Transfer the
         // final buffer to the ABI owner and avoid one allocation and copy.

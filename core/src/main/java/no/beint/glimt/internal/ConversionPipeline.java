@@ -57,19 +57,25 @@ public final class ConversionPipeline {
     public <T> T convert(byte[] input, Encoder<T> encoder) {
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(encoder, "encoder");
-        if (input.length < 1 || input.length > limits.maxInputBytes()) {
-            throw new ImageException("Input exceeds configured byte limit or is empty");
+        if (input.length < 1) {
+            throw new ImageException(ImageException.Reason.INVALID_INPUT, "Input exceeds configured byte limit or is empty");
+        }
+        if (input.length > limits.maxInputBytes()) {
+            throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "Input exceeds configured byte limit or is empty");
         }
         ImageFormat format = ImageFormat.detect(input);
         ImageDecoder decoder = decoders.get(format);
         if (decoder == null) {
-            throw new ImageException("No decoder installed for " + format + ". Supported: " + supportedFormats());
+            ImageException.Reason reason = format == ImageFormat.UNKNOWN
+                ? ImageException.Reason.UNSUPPORTED_FORMAT
+                : ImageException.Reason.MISSING_CODEC;
+            throw new ImageException(reason, "No decoder installed for " + format + ". Supported: " + supportedFormats());
         }
         Metadata metadata = Metadata.read(input, format, limits);
         if (metadata.frames() > 1 && framePolicy == FramePolicy.REJECT) {
-            throw new ImageException("Multi-frame image requires FIRST_FRAME policy");
+            throw new ImageException(ImageException.Reason.MULTI_FRAME_REJECTED, "Multi-frame image requires FIRST_FRAME policy");
         }
-        if (Thread.currentThread().isInterrupted()) throw new ImageException("Conversion interrupted before decoding");
+        if (Thread.currentThread().isInterrupted()) throw new ImageException(ImageException.Reason.CODEC_FAILURE, "Conversion interrupted before decoding");
         try (Arena arena = Arena.ofConfined()) {
             Dimensions planned = plannedDimensions(metadata);
             DecodeTarget target = decodeTarget(planned, metadata.orientation());
@@ -77,8 +83,11 @@ public final class ConversionPipeline {
                 limits, framePolicy, target, arena);
             limits.checkDimensions(pixels.width(), pixels.height(), pixels.depth() > 8 ? 8 : 4);
             int frames = Math.max(pixels.frames(), metadata.frames());
-            if (frames > limits.maxFrames() || frames > 1 && framePolicy == FramePolicy.REJECT) {
-                throw new ImageException("Image frame policy rejected input");
+            if (frames > limits.maxFrames()) {
+                throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "Image frame count exceeds configured limit");
+            }
+            if (frames > 1 && framePolicy == FramePolicy.REJECT) {
+                throw new ImageException(ImageException.Reason.MULTI_FRAME_REJECTED, "Image frame policy rejected input");
             }
             int orientation = pixels.orientation() != 1 ? pixels.orientation() : metadata.orientation();
             pixels = pixels.withMetadata(frames, orientation);
@@ -93,7 +102,7 @@ public final class ConversionPipeline {
                 pixels = Orientation.apply(pixels, arena);
                 pixels = resize(pixels, planned, arena);
             }
-            if (Thread.currentThread().isInterrupted()) throw new ImageException("Conversion interrupted before encoding");
+            if (Thread.currentThread().isInterrupted()) throw new ImageException(ImageException.Reason.CODEC_FAILURE, "Conversion interrupted before encoding");
             return encoder.encode(pixels, frames, format, arena);
         }
     }

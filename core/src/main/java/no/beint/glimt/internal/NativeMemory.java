@@ -30,8 +30,13 @@ public final class NativeMemory {
         MemorySegment memory;
         try { memory = (MemorySegment) MALLOC.invokeExact(size); }
         catch (Throwable error) { throw failure(error); }
-        if (memory.address() == 0) throw new ImageException("Cannot allocate " + size + " bytes of pixel memory");
-        return memory.reinterpret(size, arena, NativeMemory::free);
+        if (memory.address() == 0) throw new ImageException(ImageException.Reason.CODEC_FAILURE, "Cannot allocate " + size + " bytes of pixel memory");
+        try {
+            return memory.reinterpret(size, arena, NativeMemory::free);
+        } catch (Throwable error) {
+            try { free(memory); } catch (Throwable suppressed) { error.addSuppressed(suppressed); }
+            throw error;
+        }
     }
     private static void free(MemorySegment memory) {
         try { FREE.invokeExact(memory); } catch (Throwable error) { throw failure(error); }

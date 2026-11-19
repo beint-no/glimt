@@ -55,7 +55,9 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     out->width = (uint32_t)image->columns; out->height = (uint32_t)image->rows;
     out->depth = image->depth > 8 ? 16 : 8;
     out->frames = !strcmp(format, "PSD") ? 1 : (uint32_t)GetImageListLength(image);
-    if (glimt_dimensions(out, limits) || glimt_frames(out, limits)) goto done;
+    int check_status = glimt_dimensions(out, limits);
+    if (!check_status) check_status = glimt_frames(out, limits);
+    if (check_status) { failed = check_status; goto done; }
     DestroyImageList(image); image = NULL;
     info->ping = MagickFalse; info->scene = 0; info->number_scenes = 1;
     image = BlobToImage(info, data, (size_t)size, error);
@@ -63,16 +65,18 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     if (image->columns != out->width || image->rows != out->height) { glimt_fail(out, "Raster dimensions changed during decode"); goto done; }
     out->alpha = (image->alpha_trait & BlendPixelTrait) != 0;
     if (image->colorspace == CMYKColorspace || image->colorspace == LabColorspace) {
-        glimt_fail(out, "Extended decoder requires RGB or gray source; convert CMYK/Lab PSD explicitly"); goto done;
+        failed = glimt_fail_code(out, GLIMT_ERR_UNSUPPORTED, "Extended decoder requires RGB or gray source; convert CMYK/Lab PSD explicitly"); goto done;
     }
     const StringInfo *profile = GetImageProfile(image, "icc");
     if (!profile && image->colorspace != sRGBColorspace && image->colorspace != GRAYColorspace)
         if (!TransformImageColorspace(image, sRGBColorspace, error)) goto done;
-    if (glimt_allocate(out, limits)) goto done;
+    if ((check_status = glimt_allocate(out, limits)) != 0) { failed = check_status; goto done; }
     if (!ExportImagePixels(image, 0, 0, image->columns, image->rows, "RGBA",
             out->depth > 8 ? ShortPixel : CharPixel, out->pixels, error)) goto done;
     out->orientation = image->orientation >= 1 && image->orientation <= 8 ? (uint32_t)image->orientation : 1;
-    if (profile && glimt_color(out, GetStringInfoDatum(profile), GetStringInfoLength(profile), limits)) goto done;
+    if (profile && (check_status = glimt_color(out, GetStringInfoDatum(profile), GetStringInfoLength(profile), limits)) != 0) {
+        failed = check_status; goto done;
+    }
     failed = 0;
 done:
     if (failed && !out->error[0]) glimt_fail(out, error->reason ? error->reason : "Invalid extended raster image");

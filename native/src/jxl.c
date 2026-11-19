@@ -38,21 +38,22 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
         if (status == JXL_DEC_BASIC_INFO) {
             JxlBasicInfo info;
             if (JxlDecoderGetBasicInfo(decoder, &info)) break;
-            if (info.exponent_bits_per_sample || info.bits_per_sample > 16) { error = "Floating-point JPEG XL needs explicit tone mapping"; break; }
-            if (info.have_animation && !limits->first_frame) { error = "Multi-frame image requires FIRST_FRAME policy"; break; }
+            if (info.exponent_bits_per_sample || info.bits_per_sample > 16) { error = "Floating-point JPEG XL needs explicit tone mapping"; failed = GLIMT_ERR_UNSUPPORTED; break; }
+            if (info.have_animation && !limits->first_frame) { error = "Multi-frame image requires FIRST_FRAME policy"; failed = GLIMT_ERR_MULTI_FRAME; break; }
             out->width = info.xsize; out->height = info.ysize; out->depth = info.bits_per_sample > 8 ? 16 : 8;
             out->alpha = info.alpha_bits != 0;
             format.data_type = out->depth > 8 ? JXL_TYPE_UINT16 : JXL_TYPE_UINT8;
-            if (glimt_allocate(out, limits)) { error = NULL; break; }
+            int alloc_status = glimt_allocate(out, limits);
+            if (alloc_status) { failed = alloc_status; error = NULL; break; }
         } else if (status == JXL_DEC_COLOR_ENCODING) {
             if (JxlDecoderGetICCProfileSize(decoder, JXL_COLOR_PROFILE_TARGET_DATA, &profile_size) ||
-                profile_size > limits->max_metadata_bytes) { error = "Oversized JPEG XL colour profile"; break; }
+                profile_size > limits->max_metadata_bytes) { error = "Oversized JPEG XL colour profile"; failed = GLIMT_ERR_LIMITS; break; }
             if (profile_size) {
                 profile = malloc(profile_size);
                 if (!profile || JxlDecoderGetColorAsICCProfile(decoder, JXL_COLOR_PROFILE_TARGET_DATA, profile, profile_size)) break;
             }
         } else if (status == JXL_DEC_FRAME) {
-            if (++out->frames > limits->max_frames) { error = "Image frame count exceeds configured limit"; break; }
+            if (++out->frames > limits->max_frames) { error = "Image frame count exceeds configured limit"; failed = GLIMT_ERR_LIMITS; break; }
         } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
             if (out->frames > 1) {
                 if (JxlDecoderSkipCurrentFrame(decoder)) break;
@@ -72,6 +73,6 @@ done:
     JxlDecoderDestroy(decoder);
     if (!failed && profile_size) { failed = glimt_color(out, profile, profile_size, limits); error = NULL; }
     free(profile);
-    if (failed && error) return glimt_fail(out, error);
+    if (failed && error) return glimt_fail_code(out, failed, error);
     return failed;
 }

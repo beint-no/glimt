@@ -169,10 +169,94 @@ class JpegConversionTest {
     }
 
     @Test
+    void synthesizesRgbIccProfileForKnownSdrCicpInputs() throws Exception {
+        byte[] displayP3Png = cicpPng(12, 13);
+        byte[] displayP3Jpeg = JPEG.toJpeg(displayP3Png);
+        assertEquals(ImageFormat.JPEG, ImageFormat.detect(displayP3Jpeg));
+        assertNotNull(ImageIO.read(new ByteArrayInputStream(displayP3Jpeg)));
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("jpeg").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, displayP3Jpeg),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertTrue(decoded.icc().byteSize() >= 128, "Display P3 JPEG must carry a synthesized RGB ICC profile");
+            var profile = java.awt.color.ICC_Profile.getInstance(decoded.icc().toArray(ValueLayout.JAVA_BYTE));
+            assertEquals(java.awt.color.ColorSpace.TYPE_RGB, profile.getColorSpaceType());
+        }
+
+        // Convert Display P3 CICP-tagged AVIF (no embedded ICC) -> JPEG.
+        byte[] displayP3Avif = no.beint.glimt.ImageConverter.builder().effort(0).build().toAvif(displayP3Png);
+        byte[] avifToJpeg = JPEG.toJpeg(displayP3Avif);
+        assertEquals(ImageFormat.JPEG, ImageFormat.detect(avifToJpeg));
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("jpeg").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, avifToJpeg),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertTrue(decoded.icc().byteSize() >= 128, "Display P3 AVIF -> JPEG must carry a synthesized RGB ICC profile");
+            var profile = java.awt.color.ICC_Profile.getInstance(decoded.icc().toArray(ValueLayout.JAVA_BYTE));
+            assertEquals(java.awt.color.ColorSpace.TYPE_RGB, profile.getColorSpaceType());
+        }
+
+        // BT.709 and BT.2020 SDR CICP tuples also synthesize valid RGB ICC profiles.
+        for (int[] cicp : new int[][]{{1, 1}, {1, 6}, {9, 13}, {9, 14}, {9, 15}}) {
+            byte[] jpeg = JPEG.toJpeg(cicpPng(cicp[0], cicp[1]));
+            assertEquals(ImageFormat.JPEG, ImageFormat.detect(jpeg));
+            try (Arena arena = Arena.ofConfined()) {
+                var decoded = NativeCodec.of("jpeg").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, jpeg),
+                    DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+                assertTrue(decoded.icc().byteSize() >= 128, "CICP (" + cicp[0] + "," + cicp[1] + ") should embed ICC");
+                var profile = java.awt.color.ICC_Profile.getInstance(decoded.icc().toArray(ValueLayout.JAVA_BYTE));
+                assertEquals(java.awt.color.ColorSpace.TYPE_RGB, profile.getColorSpaceType());
+            }
+        }
+
+        // HDR PQ CICP (9, 16) cannot be represented as plain SDR JPEG without tone mapping.
+        var hdrError = assertThrows(ImageException.class, () -> JPEG.toJpeg(cicpPng(9, 16)));
+        assertEquals(ImageException.Reason.UNSUPPORTED_FORMAT, hdrError.reason());
+
+        // Exercise setjmp error cleanup when synthesized ICC is allocated and output overflows maxOutputBytes.
+        var tinyOutput = JpegConverter.builder().maxOutputBytes(100).build();
+        var overflow = assertThrows(ImageException.class, () -> tinyOutput.toJpeg(displayP3Png));
+        assertEquals(ImageException.Reason.OUTPUT_LIMIT_EXCEEDED, overflow.reason());
+        assertNotNull(ImageIO.read(new ByteArrayInputStream(JPEG.toJpeg(displayP3Png))));
+    }
+
+    private static byte[] cicpPng(int primaries, int transfer) throws Exception {
+        var out = new ByteArrayOutputStream();
+        out.writeBytes(new byte[]{(byte) 137, 80, 78, 71, 13, 10, 26, 10});
+        pngChunk(out, "IHDR", java.nio.ByteBuffer.allocate(13).putInt(4).putInt(4).put(new byte[]{8, 6, 0, 0, 0}).array());
+        pngChunk(out, "cICP", new byte[]{(byte) primaries, (byte) transfer, 0, 1});
+        byte[] rows = new byte[4 * (1 + 4 * 4)];
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 4; x++) {
+                int p = y * 17 + 1 + x * 4;
+                rows[p] = (byte) 240;
+                rows[p + 1] = (byte) (x * 40);
+                rows[p + 2] = (byte) (y * 50);
+                rows[p + 3] = (byte) 255;
+            }
+        }
+        var deflated = new ByteArrayOutputStream();
+        try (var stream = new java.util.zip.DeflaterOutputStream(deflated)) { stream.write(rows); }
+        pngChunk(out, "IDAT", deflated.toByteArray());
+        pngChunk(out, "IEND", new byte[0]);
+        return out.toByteArray();
+    }
+
+    private static void pngChunk(ByteArrayOutputStream out, String name, byte[] data) {
+        byte[] type = name.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        var crc = new java.util.zip.CRC32();
+        crc.update(type);
+        crc.update(data);
+        out.writeBytes(java.nio.ByteBuffer.allocate(4).putInt(data.length).array());
+        out.writeBytes(type);
+        out.writeBytes(data);
+        out.writeBytes(java.nio.ByteBuffer.allocate(4).putInt((int) crc.getValue()).array());
+    }
+
+    @Test
     void rejectsOutputOverflowAndRecovers() throws Exception {
         byte[] source = fixture("rgba.png");
         var limited = JpegConverter.builder().maxOutputBytes(100).build();
         var overflow = assertThrows(ImageException.class, () -> limited.convert(source));
+        assertEquals(ImageException.Reason.OUTPUT_LIMIT_EXCEEDED, overflow.reason());
         assertTrue(overflow.getMessage().contains("output limit"), overflow.getMessage());
         assertEquals(97, JPEG.convert(source).width());
         assertThrows(IllegalArgumentException.class,

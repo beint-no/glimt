@@ -43,7 +43,7 @@ abstract class VerifyPlatformVariants : DefaultTask() {
 }
 
 plugins { id("com.vanniktech.maven.publish") version "0.37.0" apply false }
-allprojects { group = "no.beint.glimt"; version = "0.6.5" }
+allprojects { group = "no.beint.glimt"; version = "0.7.0" }
 tasks.register("printReleaseVersion") { val value = version.toString(); doLast { println(value) } }
 val verifyDocumentation = tasks.register<Exec>("verifyDocumentation") {
     description = "Checks documentation links and consumer coordinates against the release version."
@@ -68,10 +68,10 @@ val buildPlatform = providers.gradleProperty("glimt.platform").orElse(provider {
 check(buildPlatform in platforms) { "Unsupported Glimt build platform: $buildPlatform" }
 extra["glimtPlatform"] = buildPlatform
 val nativeSources = mapOf(
-    "avif" to listOf("avif", "aom", "dav1d", "yuv"),
+    "avif" to listOf("avif", "aom", "dav1d", "yuv", "lcms"),
     "jpeg" to listOf("jpeg", "lcms"), "png" to listOf("png", "zlib", "lcms"),
     "jpegli" to listOf("jpegli", "jpegli-highway", "jpegli-libjpeg", "lcms"),
-    "webp" to listOf("webp"), "heic" to listOf("heif", "de265"),
+    "webp" to listOf("webp", "lcms"), "heic" to listOf("heif", "de265", "lcms"),
     "jxl" to listOf("jxl", "highway", "brotli", "lcms"),
     "extra" to listOf("magick", "png", "zlib", "lcms"), "resize" to listOf("stb"),
 )

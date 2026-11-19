@@ -49,7 +49,9 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
     const uint32_t source_width = out->width, source_height = out->height;
     if (!source_width || !source_height || source_width > limits->max_dimension || source_height > limits->max_dimension ||
         (uint64_t)source_width * source_height > limits->max_pixels) {
-        failed = glimt_fail(out, "Image dimensions exceed configured limits"); goto done;
+        char message[96];
+        snprintf(message, sizeof(message), "Image dimensions exceed configured limits: %ux%u", source_width, source_height);
+        failed = glimt_fail_code(out, GLIMT_ERR_DIMENSIONS, message); goto done;
     }
     if (limits->target_width && limits->target_height &&
         (limits->target_width < source_width || limits->target_height < source_height)) {
@@ -76,7 +78,7 @@ API int glimt_decode(const uint8_t *data, uint64_t size, const glimt_limits *lim
         out->width = (uint32_t)TJSCALED(source_width, selected);
         out->height = (uint32_t)TJSCALED(source_height, selected);
     }
-    if (glimt_allocate(out, limits)) { failed = 1; goto done; }
+    if ((failed = glimt_allocate(out, limits)) != 0) goto done;
     int profile_status = tj3GetICCProfile(decoder, NULL, &profile_size);
     if ((profile_status && !(profile_size == 0 && tj3GetErrorCode(decoder) == TJERR_WARNING && !icc_marker(data, (size_t)size))) || profile_size > limits->max_metadata_bytes) {
         failed = glimt_fail(out, "Invalid or oversized JPEG colour profile"); goto done;

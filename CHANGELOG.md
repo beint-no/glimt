@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+* Synthesize and embed standard RGB ICC profiles via Little CMS in JPEGli for known SDR CICP colour spaces without an embedded ICC profile (Display P3, BT.709, BT.2020).
+* Fix WebP Gray-ICC handling so colour transformation runs after pixel decoding rather than on uninitialized memory.
+* Route HEIC ICC profiles through the shared colour path so sRGB profiles collapse for linear-light resizing and Gray ICC profiles decode cleanly.
+* Clamp 10-bit and 12-bit resized samples to `(1 << depth) - 1` after negative-lobe filters (`MITCHELL`, `CATMULLROM`).
+* Mark sub-rectangle first APNG frames composited onto a transparent canvas as having alpha, wrap malformed JDK ImageIO runtime exceptions as `ImageException`, free native memory on `reinterpret` failure, and preserve EXIF orientation when a later APP1 segment omits tag `0x112`.
+* Add structured `ImageException.Reason` classification and unify native/Java dimension-limit error wording across all codecs.
+* Add `with*` helpers on `DecodeLimits` and `AvifOptions`, and `ImageConverter.Builder` parity with `JpegConverter.Builder`.
+
 ## 0.6.5
 
 * Update dav1d to 1.5.5 for AVIF decoding fixes and x86 and ARM optimizations.

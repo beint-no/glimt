@@ -107,8 +107,20 @@ class ConversionTest {
         var converter = ImageConverter.builder().limits(small).build();
         for (String name : List.of("rgba.png", "baseline.jpg", "lossless.webp", "rgba.heic", "rgba.tiff", "rgba.gif")) {
             byte[] source = fixture(name);
-            assertThrows(ImageException.class, () -> converter.convert(source), name);
+            var error = assertThrows(ImageException.class, () -> converter.convert(source), name);
+            assertEquals(ImageException.Reason.DIMENSIONS_EXCEEDED, error.reason(), name + ": " + error.getMessage());
         }
+        var narrow = DecodeLimits.DEFAULT.withMaxDimension(50);
+        var dimConverter = ImageConverter.builder().limits(narrow).build();
+        for (String name : List.of("rgba.png", "baseline.jpg", "lossless.webp", "rgba.heic", "rgba.jxl", "rgba.psd", "rgba.tiff", "rgba.gif", "paris_icc_exif_xmp.avif")) {
+            byte[] source = fixture(name);
+            var error = assertThrows(ImageException.class, () -> dimConverter.convert(source), name);
+            assertEquals(ImageException.Reason.DIMENSIONS_EXCEEDED, error.reason(), name + ": " + error.getMessage());
+        }
+        var webpError = assertThrows(ImageException.class, () -> dimConverter.convert(fixture("lossless.webp")));
+        assertEquals("Image dimensions exceed configured limits: 97x73", webpError.getMessage());
+        var pngError = assertThrows(ImageException.class, () -> dimConverter.convert(fixture("rgba.png")));
+        assertEquals("Image dimensions exceed configured limits: 97x73", pngError.getMessage());
     }
     @Test void rejectsMalformedAndTruncatedInputs() throws Exception {
         assertThrows(ImageException.class, () -> FAST.convert(new byte[0]));
@@ -351,6 +363,175 @@ class ConversionTest {
             assertArrayEquals(new byte[]{0,(byte)255,0,(byte)255},decoded.pixels().asSlice(4,4).toArray(ValueLayout.JAVA_BYTE));
             if (poster) assertEquals(0,decoded.pixels().get(ValueLayout.JAVA_BYTE,3));
         }
+    }
+    @Test void normalizesGrayAndSrgbIccInWebpAfterDecodingPixels() throws Exception {
+        byte[] gray = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_GRAY).getData();
+        byte[] srgb = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_sRGB).getData();
+        byte[] grayWebp = webp1x1WithIcc(128, 128, 128, 255, gray);
+        byte[] srgbWebp = webp1x1WithIcc(12, 34, 56, 255, srgb);
+        try (Arena arena = Arena.ofConfined()) {
+            var decodedGray = NativeCodec.of("webp").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, grayWebp),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(0, decodedGray.icc().byteSize());
+            assertEquals(1, decodedGray.primaries());
+            assertEquals(13, decodedGray.transfer());
+            assertEquals(188, decodedGray.pixels().get(ValueLayout.JAVA_BYTE, 0) & 255, 2);
+            assertEquals(188, decodedGray.pixels().get(ValueLayout.JAVA_BYTE, 1) & 255, 2);
+            assertEquals(188, decodedGray.pixels().get(ValueLayout.JAVA_BYTE, 2) & 255, 2);
+            assertEquals(255, decodedGray.pixels().get(ValueLayout.JAVA_BYTE, 3) & 255);
+
+            var decodedSrgb = NativeCodec.of("webp").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, srgbWebp),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(0, decodedSrgb.icc().byteSize());
+            assertEquals(1, decodedSrgb.primaries());
+            assertEquals(13, decodedSrgb.transfer());
+            assertArrayEquals(new byte[]{12, 34, 56, (byte) 255}, decodedSrgb.pixels().toArray(ValueLayout.JAVA_BYTE));
+        }
+        var lossless = ImageConverter.builder().effort(0).lossless(true).build().convert(grayWebp);
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, lossless.bytes()),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(188, decoded.pixels().get(ValueLayout.JAVA_BYTE, 0) & 255, 2);
+        }
+    }
+    @Test void handlesEmbeddedIccProfilesInHeic() throws Exception {
+        byte[] base = fixture("rgba.heic");
+        byte[] srgb = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_sRGB).getData();
+        byte[] linear = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_LINEAR_RGB).getData();
+        byte[] gray = java.awt.color.ICC_Profile.getInstance(java.awt.color.ColorSpace.CS_GRAY).getData();
+        try (Arena arena = Arena.ofConfined()) {
+            var plain = NativeCodec.of("heic").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, base),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            var withSrgb = NativeCodec.of("heic").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, withHeicIcc(base, srgb)),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(0, withSrgb.icc().byteSize());
+            assertEquals(1, withSrgb.primaries());
+            assertEquals(13, withSrgb.transfer());
+            assertArrayEquals(plain.pixels().toArray(ValueLayout.JAVA_BYTE), withSrgb.pixels().toArray(ValueLayout.JAVA_BYTE));
+
+            var withLinear = NativeCodec.of("heic").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, withHeicIcc(base, linear)),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertArrayEquals(linear, withLinear.icc().toArray(ValueLayout.JAVA_BYTE));
+            assertEquals(2, withLinear.primaries());
+            assertEquals(2, withLinear.transfer());
+
+            var withGray = NativeCodec.of("heic").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, withHeicIcc(base, gray)),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertEquals(0, withGray.icc().byteSize());
+            assertEquals(1, withGray.primaries());
+            assertEquals(13, withGray.transfer());
+            assertFalse(Arrays.equals(plain.pixels().toArray(ValueLayout.JAVA_BYTE), withGray.pixels().toArray(ValueLayout.JAVA_BYTE)));
+        }
+    }
+    @Test void marksOpaqueSubRectangleApngFirstFrameAsHavingAlpha() throws Exception {
+        var out = new ByteArrayOutputStream();
+        out.writeBytes(new byte[]{(byte)137, 80, 78, 71, 13, 10, 26, 10});
+        // Colour type 2 = opaque RGB (no alpha channel in the PNG itself).
+        chunk(out, "IHDR", java.nio.ByteBuffer.allocate(13).putInt(3).putInt(2).put(new byte[]{8, 2, 0, 0, 0}).array());
+        chunk(out, "acTL", java.nio.ByteBuffer.allocate(8).putInt(2).putInt(0).array());
+        // Poster image in IDAT before the first fcTL.
+        byte[] poster = new byte[2 * (1 + 3 * 3)];
+        for (int y = 0; y < 2; y++) for (int x = 0; x < 3; x++) poster[y * 10 + 1 + x * 3] = (byte) 255;
+        chunk(out, "IDAT", deflate(poster));
+        // First displayed frame: 1x1 green opaque RGB sub-rectangle at (1, 0).
+        chunk(out, "fcTL", frame(0, 1, 1, 1, 0));
+        byte[] greenCompressed = deflate(new byte[]{0, 0, (byte) 255, 0});
+        chunk(out, "fdAT", java.nio.ByteBuffer.allocate(4 + greenCompressed.length).putInt(1).put(greenCompressed).array());
+        chunk(out, "fcTL", frame(2, 3, 2, 0, 0));
+        byte[] redCompressed = deflate(poster);
+        chunk(out, "fdAT", java.nio.ByteBuffer.allocate(4 + redCompressed.length).putInt(3).put(redCompressed).array());
+        chunk(out, "IEND", new byte[0]);
+        byte[] input = out.toByteArray();
+
+        var decoder = java.util.ServiceLoader.load(no.beint.glimt.spi.ImageDecoder.class).stream()
+            .map(java.util.ServiceLoader.Provider::get)
+            .filter(candidate -> candidate.formats().contains(ImageFormat.PNG))
+            .findFirst().orElseThrow();
+        try (Arena arena = Arena.ofConfined()) {
+            var decoded = decoder.decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, input),
+                ImageFormat.PNG, DecodeLimits.DEFAULT, FramePolicy.FIRST_FRAME, arena);
+            assertTrue(decoded.hasAlpha());
+            assertEquals(0, decoded.pixels().get(ValueLayout.JAVA_BYTE, 3));
+            assertArrayEquals(new byte[]{0, (byte) 255, 0, (byte) 255},
+                decoded.pixels().asSlice(4, 4).toArray(ValueLayout.JAVA_BYTE));
+        }
+
+        var result = ImageConverter.builder().effort(0).frames(FramePolicy.FIRST_FRAME).lossless(true).build().convert(input);
+        try (Arena arena = Arena.ofConfined()) {
+            var avif = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, result.bytes()),
+                DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+            assertTrue(avif.hasAlpha());
+            assertEquals(0, avif.pixels().get(ValueLayout.JAVA_BYTE, 3));
+            assertArrayEquals(new byte[]{0, (byte) 255, 0, (byte) 255},
+                avif.pixels().asSlice(4, 4).toArray(ValueLayout.JAVA_BYTE));
+        }
+    }
+    private static byte[] webp1x1WithIcc(int r, int g, int b, int a, byte[] icc) {
+        // Minimal 1x1 VP8L bitstream with five single-symbol prefix codes.
+        long bits = 0;
+        int bitPos = 0;
+        // transform_present=0, color_cache_used=0, meta_prefix_codes=0 (3 zero bits)
+        bitPos += 3;
+        for (int symbol : new int[]{g, r, b, a, 0}) {
+            // is_simple=1 (1b), num_symbols-1=0 (1b), is_first_8bits=1 (1b), symbol (8b)
+            bits |= (1L << bitPos++);
+            bitPos++; // 0
+            bits |= (1L << bitPos++);
+            bits |= ((long) (symbol & 0xff)) << bitPos;
+            bitPos += 8;
+        }
+        int payloadBytes = (bitPos + 7) / 8;
+        byte[] vp8l = new byte[5 + payloadBytes];
+        vp8l[0] = 0x2f; // VP8L signature; width-1=0, height-1=0, alpha=0, version=0
+        for (int i = 0; i < payloadBytes; i++) vp8l[5 + i] = (byte) ((bits >>> (i * 8)) & 0xff);
+        byte[] vp8x = new byte[]{0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ICCP flag, 1x1 canvas
+        var body = new ByteArrayOutputStream();
+        body.writeBytes(new byte[]{'W', 'E', 'B', 'P'});
+        riffChunk(body, "VP8X", vp8x);
+        riffChunk(body, "ICCP", icc);
+        riffChunk(body, "VP8L", vp8l);
+        byte[] riffBody = body.toByteArray();
+        var riff = new ByteArrayOutputStream();
+        riff.writeBytes(new byte[]{'R', 'I', 'F', 'F'});
+        riff.writeBytes(java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(riffBody.length).array());
+        riff.writeBytes(riffBody);
+        return riff.toByteArray();
+    }
+    private static void riffChunk(ByteArrayOutputStream out, String fourcc, byte[] payload) {
+        out.writeBytes(fourcc.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        out.writeBytes(java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(payload.length).array());
+        out.writeBytes(payload);
+        if ((payload.length & 1) != 0) out.write(0);
+    }
+    private static byte[] withHeicIcc(byte[] heic, byte[] icc) {
+        // Inject a colr(prof) property into rgba.heic's ipco and associate it with primary item 1.
+        byte[] colr = new byte[12 + icc.length];
+        java.nio.ByteBuffer.wrap(colr).putInt(colr.length)
+            .put("colrprof".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1))
+            .put(icc);
+        int metaStart = 24, ilocStart = 69, iprpStart = 191, ipcoStart = 199, ipmaStart = 572;
+        int ipcoEnd = ipcoStart + java.nio.ByteBuffer.wrap(heic, ipcoStart, 4).getInt();
+        assertEquals(ipmaStart, ipcoEnd);
+        int ipmaAssocInsert = ipmaStart + 19; // right after item 1's 4 associations
+        int delta = colr.length + 1;
+        var out = new ByteArrayOutputStream(heic.length + delta);
+        out.write(heic, 0, ipcoEnd);
+        out.writeBytes(colr);
+        out.write(heic, ipcoEnd, ipmaAssocInsert - ipcoEnd);
+        out.write(8); // property index 8 (non-essential)
+        out.write(heic, ipmaAssocInsert, heic.length - ipmaAssocInsert);
+        byte[] patched = out.toByteArray();
+        var buf = java.nio.ByteBuffer.wrap(patched);
+        buf.putInt(metaStart, buf.getInt(metaStart) + delta);
+        buf.putInt(iprpStart, buf.getInt(iprpStart) + delta);
+        buf.putInt(ipcoStart, buf.getInt(ipcoStart) + colr.length);
+        int newIpmaStart = ipmaStart + colr.length;
+        buf.putInt(newIpmaStart, buf.getInt(newIpmaStart) + 1);
+        patched[newIpmaStart + 18] = (byte) ((patched[newIpmaStart + 18] & 0xff) + 1);
+        // Shift iloc base offsets for items 1 and 2 past the enlarged meta box.
+        buf.putInt(ilocStart + 20, buf.getInt(ilocStart + 20) + delta);
+        buf.putInt(ilocStart + 38, buf.getInt(ilocStart + 38) + delta);
+        return patched;
     }
     private static byte[] frame(int sequence, int width, int height, int x, int y) {
         return java.nio.ByteBuffer.allocate(26).putInt(sequence).putInt(width).putInt(height).putInt(x).putInt(y).putShort((short)1).putShort((short)10).put((byte)0).put((byte)0).array();

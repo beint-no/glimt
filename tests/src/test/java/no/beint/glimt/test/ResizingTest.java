@@ -253,6 +253,50 @@ class ResizingTest {
     }
 
     @Test
+    void clampsHighBitDepthOvershootFromNegativeLobeFilters() {
+        for (int depth : new int[]{10, 12}) {
+            int maximum = (1 << depth) - 1;
+            int width = 16, height = 4;
+            long stride = (long) width * 8;
+            for (boolean withAlpha : new boolean[]{false, true}) {
+                for (ResizeFilter filter : new ResizeFilter[]{ResizeFilter.MITCHELL, ResizeFilter.CATMULL_ROM}) {
+                    try (Arena arena = Arena.ofConfined()) {
+                        MemorySegment data = arena.allocate(stride * height, 2);
+                        for (int y = 0; y < height; y++) {
+                            for (int x = 0; x < width; x++) {
+                                boolean bright = (x >= 4 && x < 12) ^ (y >= 2);
+                                short value = (short) (bright ? maximum : 0);
+                                short alpha = (short) (withAlpha && !bright ? 0 : maximum);
+                                long offset = y * stride + x * 8L;
+                                data.set(ValueLayout.JAVA_SHORT, offset, value);
+                                data.set(ValueLayout.JAVA_SHORT, offset + 2, value);
+                                data.set(ValueLayout.JAVA_SHORT, offset + 4, value);
+                                data.set(ValueLayout.JAVA_SHORT, offset + 6, alpha);
+                            }
+                        }
+                        PixelImage input = new PixelImage(width, height, depth, 1, 1, 1, 13, withAlpha, stride, data, MemorySegment.NULL);
+                        PixelImage resized = NativeResizer.of("resize").resize(input, 23, 7, filter, DecodeLimits.DEFAULT, arena);
+                        for (int y = 0; y < resized.height(); y++) {
+                            for (int x = 0; x < resized.width(); x++) {
+                                long offset = y * resized.stride() + x * 8L;
+                                for (int c = 0; c < 4; c++) {
+                                    int sample = Short.toUnsignedInt(resized.pixels().get(ValueLayout.JAVA_SHORT, offset + c * 2L));
+                                    assertTrue(sample <= maximum,
+                                        "depth=" + depth + " filter=" + filter + " c=" + c + " sample=" + sample + " > " + maximum);
+                                }
+                            }
+                        }
+                        byte[] encoded = NativeCodec.of("avif").encode(resized, AvifOptions.DEFAULT.withEffort(0), arena);
+                        var decoded = NativeCodec.of("avif").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, encoded),
+                            DecodeLimits.DEFAULT, FramePolicy.REJECT, arena);
+                        assertEquals(depth, decoded.depth());
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void supportsOddStridesAtTheNativeBoundary() {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment data = arena.allocate(29);

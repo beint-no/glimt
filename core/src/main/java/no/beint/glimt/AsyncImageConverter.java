@@ -30,7 +30,8 @@ public final class AsyncImageConverter implements AutoCloseable {
      */
     public CompletableFuture<ConvertedImage> convert(byte[] input) {
         Objects.requireNonNull(input, "input");
-        if (input.length < 1 || input.length > converter.limits().maxInputBytes()) return CompletableFuture.failedFuture(new ImageException("Invalid input size"));
+        if (input.length < 1) return CompletableFuture.failedFuture(new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid input size"));
+        if (input.length > converter.limits().maxInputBytes()) return CompletableFuture.failedFuture(new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "Invalid input size"));
         long size = input.length;
         while (true) {
             long previous = retained.get();

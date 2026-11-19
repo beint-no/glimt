@@ -20,12 +20,12 @@ final class PngFrames {
         boolean animated = false;
         for (int pos = 8; pos <= bytes.limit() - 12;) {
             int size = bytes.getInt(pos);
-            if (size < 0 || size > bytes.limit() - pos - 12) throw new ImageException("Truncated PNG chunk");
+            if (size < 0 || size > bytes.limit() - pos - 12) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated PNG chunk");
             if (bytes.getInt(pos + 4) == 0x6163544c) { animated = true; break; }
             pos += size + 12;
         }
         if (!animated) return NativeCodec.of("png").decode(input, limits, policy, arena);
-        if (policy != FramePolicy.FIRST_FRAME) throw new ImageException("APNG requires FIRST_FRAME policy");
+        if (policy != FramePolicy.FIRST_FRAME) throw new ImageException(ImageException.Reason.MULTI_FRAME_REJECTED, "APNG requires FIRST_FRAME policy");
         ByteArrayOutputStream global = new ByteArrayOutputStream(), pixels = new ByteArrayOutputStream();
         byte[] header = null;
         int canvasWidth = 0, canvasHeight = 0, width = 0, height = 0, x = 0, y = 0, frames = 0, expected = 0;
@@ -33,71 +33,72 @@ final class PngFrames {
         boolean idat = false, firstIsDefault = false, ended = false;
         for (int pos = 8; pos <= bytes.limit() - 12;) {
             int size = bytes.getInt(pos);
-            if (size < 0 || size > bytes.limit() - pos - 12) throw new ImageException("Truncated APNG chunk");
+            if (size < 0 || size > bytes.limit() - pos - 12) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Truncated APNG chunk");
             byte[] type = input.asSlice(pos + 4, 4).toArray(ValueLayout.JAVA_BYTE);
             String name = new String(type, StandardCharsets.ISO_8859_1);
             CRC32 crc = new CRC32(); crc.update(bytes.slice(pos + 4, size + 4));
-            if (crc.getValue() != Integer.toUnsignedLong(bytes.getInt(pos + size + 8))) throw new ImageException("Invalid APNG CRC");
+            if (crc.getValue() != Integer.toUnsignedLong(bytes.getInt(pos + size + 8))) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG CRC");
             switch (name) {
                 case "IHDR" -> {
-                    if (pos != 8 || size != 13) throw new ImageException("Invalid PNG header");
+                    if (pos != 8 || size != 13) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid PNG header");
                     header = input.asSlice(pos + 8, size).toArray(ValueLayout.JAVA_BYTE);
                     canvasWidth = bytes.getInt(pos + 8); canvasHeight = bytes.getInt(pos + 12);
                     limits.checkDimensions(canvasWidth, canvasHeight, header[8] == 16 ? 8 : 4);
                 }
                 case "acTL" -> {
-                    if (size != 8 || expected != 0 || idat) throw new ImageException("Invalid APNG control");
+                    if (size != 8 || expected != 0 || idat) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG control");
                     expected = bytes.getInt(pos + 8);
-                    if (expected < 1 || expected > limits.maxFrames()) throw new ImageException("APNG frame count exceeds limit");
+                    if (expected < 1) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG frame count");
+                    if (expected > limits.maxFrames()) throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "APNG frame count exceeds limit");
                 }
                 case "fcTL" -> {
-                    if (size != 26 || Integer.toUnsignedLong(bytes.getInt(pos + 8)) != sequence++) throw new ImageException("Invalid APNG frame sequence");
+                    if (size != 26 || Integer.toUnsignedLong(bytes.getInt(pos + 8)) != sequence++) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG frame sequence");
                     frames++;
-                    if (frames > limits.maxFrames()) throw new ImageException("APNG frame count exceeds limit");
+                    if (frames > limits.maxFrames()) throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "APNG frame count exceeds limit");
                     if (frames == 1) {
                         width = bytes.getInt(pos + 12); height = bytes.getInt(pos + 16);
                         x = bytes.getInt(pos + 20); y = bytes.getInt(pos + 24);
                         if (width < 1 || height < 1 || x < 0 || y < 0 || width > canvasWidth - x || height > canvasHeight - y)
-                            throw new ImageException("APNG frame outside canvas");
+                            throw new ImageException(ImageException.Reason.INVALID_INPUT, "APNG frame outside canvas");
                         firstIsDefault = !idat;
                         if (firstIsDefault && (x != 0 || y != 0 || width != canvasWidth || height != canvasHeight))
-                            throw new ImageException("APNG default frame differs from canvas");
+                            throw new ImageException(ImageException.Reason.INVALID_INPUT, "APNG default frame differs from canvas");
                     }
-                    if ((bytes.get(pos + 32) & 255) > 2 || (bytes.get(pos + 33) & 255) > 1) throw new ImageException("Invalid APNG blending");
+                    if ((bytes.get(pos + 32) & 255) > 2 || (bytes.get(pos + 33) & 255) > 1) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG blending");
                 }
                 case "IDAT" -> {
                     idat = true;
                     if (frames == 1 && firstIsDefault) chunk(pixels, "IDAT", input.asSlice(pos + 8, size).toArray(ValueLayout.JAVA_BYTE));
                 }
                 case "fdAT" -> {
-                    if (size < 4 || frames < 1 || Integer.toUnsignedLong(bytes.getInt(pos + 8)) != sequence++) throw new ImageException("Invalid APNG frame data");
+                    if (size < 4 || frames < 1 || Integer.toUnsignedLong(bytes.getInt(pos + 8)) != sequence++) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid APNG frame data");
                     if (frames == 1 && !firstIsDefault) chunk(pixels, "IDAT", input.asSlice(pos + 12, size - 4).toArray(ValueLayout.JAVA_BYTE));
                 }
-                case "IEND" -> { if (size != 0) throw new ImageException("Invalid PNG end"); ended = true; }
+                case "IEND" -> { if (size != 0) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Invalid PNG end"); ended = true; }
                 default -> {
                     if (GLOBAL.contains(name)) {
-                        if (idat) throw new ImageException("PNG colour metadata after image data");
+                        if (idat) throw new ImageException(ImageException.Reason.INVALID_INPUT, "PNG colour metadata after image data");
                         chunk(global, name, input.asSlice(pos + 8, size).toArray(ValueLayout.JAVA_BYTE));
-                    } else if ((type[0] & 32) == 0) throw new ImageException("Unknown critical PNG chunk");
+                    } else if ((type[0] & 32) == 0) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Unknown critical PNG chunk");
                 }
             }
             pos += size + 12;
-            if (ended) { if (pos != bytes.limit()) throw new ImageException("Data after PNG end"); break; }
+            if (ended) { if (pos != bytes.limit()) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Data after PNG end"); break; }
         }
-        if (!ended || header == null || frames != expected || pixels.size() == 0) throw new ImageException("Incomplete APNG");
+        if (!ended || header == null || frames != expected || pixels.size() == 0) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Incomplete APNG");
         ByteBuffer.wrap(header).putInt(width).putInt(height);
         ByteArrayOutputStream png = new ByteArrayOutputStream();
         png.writeBytes(input.asSlice(0, 8).toArray(ValueLayout.JAVA_BYTE));
         chunk(png, "IHDR", header); png.writeBytes(global.toByteArray()); png.writeBytes(pixels.toByteArray()); chunk(png, "IEND", new byte[0]);
         PixelImage decoded = NativeCodec.of("png").decode(arena.allocateFrom(ValueLayout.JAVA_BYTE, png.toByteArray()), limits, policy, arena);
-        if (width == canvasWidth && height == canvasHeight) return decoded.withMetadata(frames, 1);
+        if (x == 0 && y == 0 && width == canvasWidth && height == canvasHeight) return decoded.withMetadata(frames, 1);
         int sampleSize = decoded.depth() > 8 ? 8 : 4;
         long stride = (long)canvasWidth * sampleSize;
         MemorySegment canvas = arena.allocate(stride * canvasHeight, 8);
         for (int row = 0; row < height; row++) MemorySegment.copy(decoded.pixels(), row * decoded.stride(),
             canvas, (row + (long)y) * stride + (long)x * sampleSize, (long)width * sampleSize);
         return new PixelImage(canvasWidth, canvasHeight, decoded.depth(), frames, 1, decoded.primaries(), decoded.transfer(),
-            decoded.hasAlpha(), stride, canvas, decoded.icc());
+            true, stride, canvas, decoded.icc());
     }
     private static void chunk(ByteArrayOutputStream output, String name, byte[] data) {
         byte[] type = name.getBytes(StandardCharsets.ISO_8859_1);

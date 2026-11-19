@@ -76,7 +76,8 @@ public final class JpegConverter {
     public ConvertedImage convert(byte[] input) {
         return pipeline.convert(input, (pixels, frames, format, arena) -> {
             byte[] output = encoder.encode(pixels, options, arena);
-            if (output.length > options.maxOutputBytes()) throw new ImageException("Encoded output exceeds configured limit");
+            if (output.length > options.maxOutputBytes())
+                throw new ImageException(ImageException.Reason.OUTPUT_LIMIT_EXCEEDED, "Encoded output exceeds configured limit");
             return new ConvertedImage(output, pixels.width(), pixels.height(), 8, frames, format, ImageFormat.JPEG);
         });
     }

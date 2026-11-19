@@ -74,7 +74,8 @@ public final class ImageConverter {
             // Lossless output must keep the decoded samples, including the
             // invisible colour under transparent pixels.
             byte[] output = encoder.encode(options.lossless() ? pixels : Alpha.normalize(pixels), options, arena);
-            if (output.length > options.maxOutputBytes()) throw new ImageException("Encoded output exceeds configured limit");
+            if (output.length > options.maxOutputBytes())
+                throw new ImageException(ImageException.Reason.OUTPUT_LIMIT_EXCEEDED, "Encoded output exceeds configured limit");
             int depth = options.bitDepth() == 0 ? Math.min(12, pixels.depth()) : options.bitDepth();
             return new ConvertedImage(output, pixels.width(), pixels.height(), depth, frames, format, ImageFormat.AVIF);
         });
@@ -165,6 +166,36 @@ public final class ImageConverter {
          * @return this builder
          */
         public Builder alphaQuality(int value) { options = options.withAlphaQuality(value); return this; }
+        /**
+         * Sets AVIF chroma subsampling.
+         * @param value chroma subsampling
+         * @return this builder
+         */
+        public Builder chroma(Chroma value) { options = options.withChroma(value); return this; }
+        /**
+         * Sets maximum codec threads per conversion.
+         * @param value threads from 1 through 64
+         * @return this builder
+         */
+        public Builder threads(int value) { options = options.withThreads(value); return this; }
+        /**
+         * Sets AVIF output sample bit depth.
+         * @param value 0 to retain input depth up to 12 bits, or 8, 10 or 12
+         * @return this builder
+         */
+        public Builder bitDepth(int value) { options = options.withBitDepth(value); return this; }
+        /**
+         * Enables or disables lossless AVIF encoding.
+         * @param value whether lossless mode is enabled
+         * @return this builder
+         */
+        public Builder lossless(boolean value) { options = options.withLossless(value); return this; }
+        /**
+         * Sets the maximum encoded AVIF size.
+         * @param value maximum encoded bytes
+         * @return this builder
+         */
+        public Builder maxOutputBytes(long value) { options = options.withMaxOutputBytes(value); return this; }
         /**
          * Sets decode rejection boundaries.
          * @param value decode limits

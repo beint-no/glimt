@@ -12,12 +12,12 @@ unrelated upstream test photographs are not redistributed in those source JARs.
 
 | Bundle | Components | Upstream license families |
 | --- | --- | --- |
-| AVIF | libavif, libaom, dav1d, libyuv | BSD, plus included patent grants and third-party notices |
+| AVIF | libavif, libaom, dav1d, libyuv, Little CMS | BSD, plus included patent grants and third-party notices, MIT |
 | JPEG | libjpeg-turbo, Little CMS | IJG/BSD, MIT |
-| JPEGli | JPEGli, Highway, libjpeg-turbo headers | BSD, Apache/BSD, IJG/BSD |
+| JPEGli | JPEGli, Highway, libjpeg-turbo headers, Little CMS | BSD, Apache/BSD, IJG/BSD, MIT |
 | PNG | libpng, zlib, Little CMS | libpng, zlib, MIT |
 | WebP | libwebp, libsharpyuv, Little CMS | BSD and included patent grant, MIT |
-| HEIC | libheif, libde265 | LGPL-3.0-or-later for decoder libraries |
+| HEIC | libheif, libde265, Little CMS | LGPL-3.0-or-later for decoder libraries, MIT |
 | JPEG XL | libjxl, Highway, Brotli, Little CMS | BSD, Apache/BSD, MIT |
 | Extra | ImageMagick, libpng, zlib, Little CMS | ImageMagick, libpng, zlib, MIT |
 | Resize | stb_image_resize2 | Public domain or MIT, at the redistributor's option |

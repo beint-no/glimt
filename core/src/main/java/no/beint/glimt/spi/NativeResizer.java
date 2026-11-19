@@ -17,7 +17,7 @@ public final class NativeResizer {
         SymbolLookup lookup = NativeLibrary.load(name);
         Linker linker = Linker.nativeLinker();
         MethodHandle abi = linker.downcallHandle(lookup.findOrThrow("glimt_abi"), FunctionDescriptor.of(JAVA_INT));
-        try { int version = (int) abi.invokeExact(); if (version != 2 && version != 3) throw new ImageException("Incompatible Glimt native ABI for " + name); }
+        try { int version = (int) abi.invokeExact(); if (version != 2 && version != 3) throw new ImageException(ImageException.Reason.MISSING_CODEC, "Incompatible Glimt native ABI for " + name); }
         catch (Throwable error) { throw failure(error); }
         resize = linker.downcallHandle(lookup.findOrThrow("glimt_resize"), FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
         release = linker.downcallHandle(lookup.findOrThrow("glimt_release"), FunctionDescriptor.ofVoid(ADDRESS));
@@ -57,7 +57,10 @@ public final class NativeResizer {
         try {
             int status = (int) resize.invokeExact(source, settings, result);
             pixels = result.get(ADDRESS, 56);
-            if (status != 0) throw new ImageException(result.asSlice(72, 256).getString(0));
+            if (status != 0) {
+                String message = result.asSlice(72, 256).getString(0);
+                throw new ImageException(NativeCodec.reasonFor(status, message), message);
+            }
             long stride = result.get(JAVA_LONG, 32), size = result.get(JAVA_LONG, 40);
             long expectedStride = (long) width * (input.depth() > 8 ? 8 : 4);
             if (pixels.address() == 0 || stride != expectedStride || size != Math.multiplyExact(stride, height) || size > limits.maxDecodedBytes())

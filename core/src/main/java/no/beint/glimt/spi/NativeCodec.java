@@ -2,6 +2,7 @@ package no.beint.glimt.spi;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import no.beint.glimt.*;
@@ -23,7 +24,7 @@ public final class NativeCodec {
         MethodHandle abi = linker.downcallHandle(lookup.findOrThrow("glimt_abi"), FunctionDescriptor.of(JAVA_INT));
         try {
             abiVersion = (int) abi.invokeExact();
-            if (abiVersion < 1 || abiVersion > 3) throw new ImageException("Incompatible Glimt native ABI for " + name);
+            if (abiVersion < 1 || abiVersion > 3) throw new ImageException(ImageException.Reason.MISSING_CODEC, "Incompatible Glimt native ABI for " + name);
         }
         catch (Throwable error) { throw failure(error); }
         decode = lookup.find("glimt_decode").map(symbol -> linker.downcallHandle(symbol,
@@ -61,7 +62,7 @@ public final class NativeCodec {
      * @return decoded pixels owned by the supplied arena
      */
     public PixelImage decode(MemorySegment input, DecodeLimits limits, FramePolicy frames, DecodeTarget target, Arena arena) {
-        if (decode == null) throw new ImageException("Codec cannot decode images");
+        if (decode == null) throw new ImageException(ImageException.Reason.MISSING_CODEC, "Codec cannot decode images");
         Objects.requireNonNull(target, "target");
         MemorySegment settings = arena.allocate(abiVersion >= 3 ? 48 : 40, 8), result = arena.allocate(328, 8);
         settings.set(JAVA_LONG, 0, limits.maxPixels()); settings.set(JAVA_LONG, 8, limits.maxDecodedBytes());
@@ -73,7 +74,10 @@ public final class NativeCodec {
         }
         try {
             int status = (int) decode.invokeExact(input, input.byteSize(), settings, result);
-            if (status != 0) throw new ImageException(result.asSlice(72, 256).getString(0));
+            if (status != 0) {
+                String message = result.asSlice(72, 256).getString(0);
+                throw new ImageException(reasonFor(status, message), message);
+            }
         } catch (Throwable error) { throw failure(error); }
         MemorySegment pixels = result.get(ADDRESS, 56), icc = result.get(ADDRESS, 64);
         boolean pixelsOwned = false, iccOwned = false;
@@ -107,7 +111,7 @@ public final class NativeCodec {
      * @return encoded AVIF bytes
      */
     public byte[] encode(PixelImage input, AvifOptions options, Arena arena) {
-        if (encode == null) throw new ImageException("Codec cannot encode AVIF");
+        if (encode == null) throw new ImageException(ImageException.Reason.MISSING_CODEC, "Codec cannot encode AVIF");
         MemorySegment settings = arena.allocate(40, 8);
         settings.set(JAVA_INT, 0, options.quality()); settings.set(JAVA_INT, 4, options.alphaQuality());
         settings.set(JAVA_INT, 8, options.effort()); settings.set(JAVA_INT, 12, options.threads());
@@ -124,7 +128,7 @@ public final class NativeCodec {
      * @return encoded JPEG bytes
      */
     public byte[] encode(PixelImage input, JpegOptions options, Arena arena) {
-        if (encode == null) throw new ImageException("Codec cannot encode JPEG");
+        if (encode == null) throw new ImageException(ImageException.Reason.MISSING_CODEC, "Codec cannot encode JPEG");
         MemorySegment settings = arena.allocate(40, 8);
         settings.set(JAVA_INT, 0, options.quality());
         settings.set(JAVA_INT, 4, options.progressive() ? 2 : 0);
@@ -143,12 +147,54 @@ public final class NativeCodec {
         source.set(JAVA_LONG, 48, input.icc().byteSize()); source.set(ADDRESS, 56, input.pixels()); source.set(ADDRESS, 64, input.icc());
         try {
             int status = (int) encode.invokeExact(source, settings, result);
-            if (status != 0) throw new ImageException(result.asSlice(72, 256).getString(0));
+            if (status != 0) {
+                String message = result.asSlice(72, 256).getString(0);
+                throw new ImageException(reasonFor(status, message), message);
+            }
             long size = result.get(JAVA_LONG, 40);
-            if (size < 1 || size > maxOutputBytes) throw new ImageException("Invalid encoded " + format + " buffer size");
+            if (size < 1 || size > maxOutputBytes) {
+                throw new ImageException(size > maxOutputBytes ? ImageException.Reason.OUTPUT_LIMIT_EXCEEDED : ImageException.Reason.CODEC_FAILURE,
+                    "Invalid encoded " + format + " buffer size");
+            }
             return result.get(ADDRESS, 56).reinterpret(size).toArray(JAVA_BYTE);
         } catch (Throwable error) { throw failure(error); }
         finally { MemorySegment buffer = result.get(ADDRESS, 56); if (buffer.address() != 0) free(buffer); }
+    }
+    static ImageException.Reason reasonFor(int status, String message) {
+        return switch (status) {
+            case 2 -> ImageException.Reason.INVALID_INPUT;
+            case 3 -> ImageException.Reason.UNSUPPORTED_FORMAT;
+            case 4 -> ImageException.Reason.LIMITS_EXCEEDED;
+            case 5 -> ImageException.Reason.DIMENSIONS_EXCEEDED;
+            case 6 -> ImageException.Reason.MULTI_FRAME_REJECTED;
+            case 7 -> ImageException.Reason.OUTPUT_LIMIT_EXCEEDED;
+            default -> classifyMessage(message);
+        };
+    }
+    private static ImageException.Reason classifyMessage(String message) {
+        if (message == null || message.isEmpty()) return ImageException.Reason.CODEC_FAILURE;
+        String lower = message.toLowerCase(Locale.ROOT);
+        if (lower.contains("exceeds configured output limit")) return ImageException.Reason.OUTPUT_LIMIT_EXCEEDED;
+        if (lower.contains("first_frame policy") || lower.contains("multi-frame")) return ImageException.Reason.MULTI_FRAME_REJECTED;
+        if (lower.contains("image dimensions exceed")
+            || lower.contains("exceeds user limit in ihdr")
+            || lower.contains("width or height exceeds")
+            || lower.contains("image is too large")
+            || (lower.contains("image size") && lower.contains("exceed"))
+            || (lower.contains("dimension") && lower.contains("exceed"))
+            || (lower.contains("pixel") && lower.contains("exceed"))) {
+            return ImageException.Reason.DIMENSIONS_EXCEEDED;
+        }
+        if (lower.contains("exceeds configured") || lower.contains("exceeds limit")
+            || lower.contains("oversized") || lower.contains("resource limit")
+            || lower.contains("memory limit") || lower.contains("exceeds maximum")) {
+            return ImageException.Reason.LIMITS_EXCEEDED;
+        }
+        if (lower.contains("unsupported")) return ImageException.Reason.UNSUPPORTED_FORMAT;
+        if (lower.contains("invalid") || lower.contains("truncated") || lower.contains("corrupt")) {
+            return ImageException.Reason.INVALID_INPUT;
+        }
+        return ImageException.Reason.CODEC_FAILURE;
     }
     private void free(MemorySegment memory) {
         try { release.invokeExact(memory); } catch (Throwable error) { throw failure(error); }

@@ -11,7 +11,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXPECTED = sys.argv[1]
 MARKDOWN = [ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md"))]
-VERSIONED = [ROOT / "README.md", ROOT / "docs/site/index.html"]
+VERSIONED = [ROOT / "README.md", ROOT / "docs/deployment.md", ROOT / "docs/site/index.html"]
 failures = []
 coordinates = 0
 

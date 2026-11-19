@@ -248,7 +248,8 @@ for codec in args.codecs.split(','):
              '-DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_PNG=ON',
              '-DCMAKE_DISABLE_FIND_PACKAGE_GIF=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON'])
         run(['cmake', '--build', jpegli_build, '--parallel', args.jobs, '--target', 'jpegli-static'])
-        bridge(codec, [jpegli_build / 'lib/libjpegli-static.a', jpegli_build / 'third_party/highway/libhwy.a'],
+        bridge(codec, [jpegli_build / 'lib/libjpegli-static.a', jpegli_build / 'third_party/highway/libhwy.a',
+                       PREFIX / 'lib/liblcms2.a'],
                cflags=['-I' + str(jpegli), '-I' + str(jpegli_build / 'lib/include'),
                        '-I' + str(jpegli_build / 'lib/include/jpegli')])
         notices(codec, ['jpegli', 'jpegli-highway', 'jpegli-libjpeg', 'lcms'])
@@ -274,9 +275,10 @@ for codec in args.codecs.split(','):
                       '-DWITH_X265=OFF', '-DWITH_X264=OFF', '-DWITH_OpenH264_DECODER=OFF', '-DWITH_AOM_DECODER=OFF',
                       '-DWITH_AOM_ENCODER=OFF', '-DWITH_DAV1D=OFF', '-DWITH_LIBSHARPYUV=OFF', '-DWITH_EXAMPLES=OFF',
                       '-DWITH_GDK_PIXBUF=OFF', '-DBUILD_DOCUMENTATION=OFF', '-DENABLE_PARALLEL_TILE_DECODING=OFF', *runtime_flags])
+        meson('lcms', ('-Dtests=disabled', '-Dutils=false'))
         suffix = 'dylib' if platform.system() == 'Darwin' else 'so'
-        bridge(codec, [PREFIX / 'lib' / ('libheif.' + suffix)], ['libheif', 'libde265'])
-        notices(codec, ['heif', 'de265'])
+        bridge(codec, [PREFIX / 'lib' / ('libheif.' + suffix), PREFIX / 'lib/liblcms2.a'], ['libheif', 'libde265'])
+        notices(codec, ['heif', 'de265', 'lcms'])
     elif codec == 'jxl':
         jxl = source('jxl')
         for name in ('highway', 'brotli'):

@@ -28,36 +28,54 @@ public final class JdkImageDecoder implements ImageDecoder {
             if ("java.desktop".equals(candidate.getClass().getModule().getName())) { reader = candidate; break; }
             candidate.dispose();
         }
-        if (reader == null) throw new ImageException("No JDK reader for " + format);
+        if (reader == null) throw new ImageException(ImageException.Reason.MISSING_CODEC, "No JDK reader for " + format);
         try (SegmentInput stream = new SegmentInput(input)) {
             reader.setInput(stream, false, false);
             int width = reader.getWidth(0), height = reader.getHeight(0);
             limits.checkDimensions(width, height, 8); // account for BufferedImage plus native RGBA
             int count = reader.getNumImages(true);
-            if (count < 1 || count > limits.maxFrames() || count > 1 && frames == FramePolicy.REJECT)
-                throw new ImageException("Multi-frame input rejected by frame policy");
+            if (count < 1) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Image contains no frames");
+            if (count > limits.maxFrames()) throw new ImageException(ImageException.Reason.LIMITS_EXCEEDED, "Image frame count exceeds configured limit");
+            if (count > 1 && frames == FramePolicy.REJECT)
+                throw new ImageException(ImageException.Reason.MULTI_FRAME_REJECTED, "Multi-frame input rejected by frame policy");
             BufferedImage image = reader.read(0);
+            if (image == null) throw new ImageException(ImageException.Reason.INVALID_INPUT, "Cannot decode " + format);
             boolean hasAlpha = image.getColorModel().hasAlpha();
             int left = 0, top = 0, background = 0;
             if (format == ImageFormat.GIF) {
-                Node streamMetadata = reader.getStreamMetadata().getAsTree("javax_imageio_gif_stream_1.0");
-                Node frameMetadata = reader.getImageMetadata(0).getAsTree("javax_imageio_gif_image_1.0");
+                var rawStreamMetadata = reader.getStreamMetadata();
+                Node streamMetadata = rawStreamMetadata == null ? null : rawStreamMetadata.getAsTree("javax_imageio_gif_stream_1.0");
+                var rawFrameMetadata = reader.getImageMetadata(0);
+                Node frameMetadata = rawFrameMetadata == null ? null : rawFrameMetadata.getAsTree("javax_imageio_gif_image_1.0");
                 Node screen = find(streamMetadata, "LogicalScreenDescriptor");
-                if (screen != null) { width = attribute(screen, "logicalScreenWidth"); height = attribute(screen, "logicalScreenHeight"); }
+                if (screen != null) {
+                    width = attribute(screen, "logicalScreenWidth", width);
+                    height = attribute(screen, "logicalScreenHeight", height);
+                }
                 limits.checkDimensions(width, height, 8);
                 Node descriptor = find(frameMetadata, "ImageDescriptor");
-                if (descriptor != null) { left = attribute(descriptor, "imageLeftPosition"); top = attribute(descriptor, "imageTopPosition"); }
+                if (descriptor != null) {
+                    left = attribute(descriptor, "imageLeftPosition", 0);
+                    top = attribute(descriptor, "imageTopPosition", 0);
+                }
                 if (left < 0 || top < 0 || image.getWidth() > width - left || image.getHeight() > height - top)
-                    throw new ImageException("GIF frame exceeds logical screen");
+                    throw new ImageException(ImageException.Reason.INVALID_INPUT, "GIF frame exceeds logical screen");
                 Node control = find(frameMetadata, "GraphicControlExtension");
-                boolean transparent = control != null && Boolean.parseBoolean(control.getAttributes().getNamedItem("transparentColorFlag").getNodeValue());
+                boolean transparent = Boolean.parseBoolean(attributeText(control, "transparentColorFlag"));
                 Node table = find(streamMetadata, "GlobalColorTable");
                 if (!transparent && table != null) {
-                    int index = attribute(table, "backgroundColorIndex");
-                    for (Node color = table.getFirstChild(); color != null; color = color.getNextSibling()) {
-                        if (color.getNodeName().equals("ColorTableEntry") && attribute(color, "index") == index) {
-                            background = 0xff000000 | attribute(color, "red") << 16 | attribute(color, "green") << 8 | attribute(color, "blue");
-                            break;
+                    Integer index = optionalAttribute(table, "backgroundColorIndex");
+                    if (index != null) {
+                        for (Node color = table.getFirstChild(); color != null; color = color.getNextSibling()) {
+                            if (color.getNodeName().equals("ColorTableEntry") && index.equals(optionalAttribute(color, "index"))) {
+                                Integer red = optionalAttribute(color, "red");
+                                Integer green = optionalAttribute(color, "green");
+                                Integer blue = optionalAttribute(color, "blue");
+                                if (red != null && green != null && blue != null) {
+                                    background = 0xff000000 | red << 16 | green << 8 | blue;
+                                }
+                                break;
+                            }
                         }
                     }
                 }
@@ -80,7 +98,8 @@ public final class JdkImageDecoder implements ImageDecoder {
             var metadata = reader.getImageMetadata(0);
             if (format == ImageFormat.TIFF && metadata != null && metadata.isStandardMetadataFormatSupported()) {
                 Node value = find(metadata.getAsTree("javax_imageio_1.0"), "ImageOrientation");
-                if (value != null) orientation = switch (value.getAttributes().getNamedItem("value").getNodeValue()) {
+                String orientationValue = attributeText(value, "value");
+                if (orientationValue != null) orientation = switch (orientationValue) {
                     case "FlipH" -> 2; case "Rotate180" -> 3; case "FlipV" -> 4;
                     case "FlipHRotate90" -> 5; case "Rotate270" -> 6;
                     case "FlipVRotate90" -> 7; case "Rotate90" -> 8; default -> 1;
@@ -88,21 +107,36 @@ public final class JdkImageDecoder implements ImageDecoder {
             }
             return new PixelImage(width, height, 8, count, orientation, 1, 13,
                 hasAlpha, stride, pixels, MemorySegment.NULL);
-        } catch (IOException | IndexOutOfBoundsException exception) {
-            throw new ImageException("Cannot decode " + format, exception);
+        } catch (ImageException exception) {
+            throw exception;
+        } catch (IOException | RuntimeException exception) {
+            throw new ImageException(ImageException.Reason.INVALID_INPUT, "Cannot decode " + format, exception);
         } finally { reader.dispose(); }
     }
     private static void putArgb(MemorySegment pixels, long offset, int argb) {
         pixels.set(RGBA, offset, Integer.rotateLeft(argb, 8));
     }
     private static Node find(Node node, String name) {
+        if (node == null) return null;
         if (node.getNodeName().equals(name)) return node;
         for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
             Node result = find(child, name); if (result != null) return result;
         }
         return null;
     }
-    private static int attribute(Node node, String name) { return Integer.parseInt(node.getAttributes().getNamedItem(name).getNodeValue()); }
+    private static String attributeText(Node node, String name) {
+        if (node == null || node.getAttributes() == null) return null;
+        Node item = node.getAttributes().getNamedItem(name);
+        return item == null ? null : item.getNodeValue();
+    }
+    private static Integer optionalAttribute(Node node, String name) {
+        String text = attributeText(node, name);
+        return text == null ? null : Integer.valueOf(text);
+    }
+    private static int attribute(Node node, String name, int fallback) {
+        Integer value = optionalAttribute(node, name);
+        return value == null ? fallback : value;
+    }
     private static final class SegmentInput extends ImageInputStreamImpl {
         private final MemorySegment bytes;
         SegmentInput(MemorySegment bytes) { this.bytes = bytes; }

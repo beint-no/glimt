@@ -25,6 +25,16 @@ static int opaque(const glimt_image *image) {
     return 1;
 }
 
+static void clamp_samples(glimt_image *image) {
+    const uint16_t maximum = (uint16_t)((1u << image->depth) - 1u);
+    for (uint32_t y = 0; y < image->height; y++) {
+        uint16_t *row = (uint16_t *)(image->pixels + (uint64_t)y * image->stride);
+        for (size_t i = 0; i < (size_t)image->width * 4; i++) {
+            if (row[i] > maximum) row[i] = maximum;
+        }
+    }
+}
+
 static void clear_transparent_colour(glimt_image *image) {
     if (image->depth > 8) {
         for (uint32_t y = 0; y < image->height; y++) {
@@ -58,7 +68,7 @@ API int glimt_resize(const glimt_image *in, const glimt_resize_options *options,
         return glimt_fail(out, "Resize dimensions overflow");
     out->size = out->stride * out->height;
     if (out->size > options->max_output_bytes || out->size > SIZE_MAX)
-        return glimt_fail(out, "Resized pixels exceed configured byte limit");
+        return glimt_fail_code(out, GLIMT_ERR_LIMITS, "Resized pixels exceed configured byte limit");
     out->pixels = malloc((size_t)out->size);
     if (!out->pixels) return glimt_fail(out, "Cannot allocate resized pixels");
 
@@ -74,6 +84,7 @@ API int glimt_resize(const glimt_image *in, const glimt_resize_options *options,
                       out->pixels, (int)out->width, (int)out->height, (int)out->stride,
                       input_opaque ? STBIR_4CHANNEL : STBIR_RGBA, datatype, STBIR_EDGE_CLAMP, filters[options->filter]))
         return glimt_fail(out, "Native image resize failed");
+    if (out->depth > 8 && out->depth < 16) clamp_samples(out);
     if (!input_opaque) clear_transparent_colour(out);
     return 0;
 }

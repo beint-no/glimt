@@ -68,10 +68,10 @@ val buildPlatform = providers.gradleProperty("glimt.platform").orElse(provider {
 check(buildPlatform in platforms) { "Unsupported Glimt build platform: $buildPlatform" }
 extra["glimtPlatform"] = buildPlatform
 val nativeSources = mapOf(
-    "avif" to listOf("avif", "aom", "dav1d", "yuv"),
+    "avif" to listOf("avif", "aom", "dav1d", "yuv", "lcms"),
     "jpeg" to listOf("jpeg", "lcms"), "png" to listOf("png", "zlib", "lcms"),
     "jpegli" to listOf("jpegli", "jpegli-highway", "jpegli-libjpeg", "lcms"),
-    "webp" to listOf("webp"), "heic" to listOf("heif", "de265"),
+    "webp" to listOf("webp", "lcms"), "heic" to listOf("heif", "de265", "lcms"),
     "jxl" to listOf("jxl", "highway", "brotli", "lcms"),
     "extra" to listOf("magick", "png", "zlib", "lcms"), "resize" to listOf("stb"),
 )

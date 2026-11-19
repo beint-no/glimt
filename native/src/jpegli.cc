@@ -1,12 +1,14 @@
 extern "C" {
 #include "glimt.h"
 }
+#include <lcms2.h>
 #include <setjmp.h>
 #include "lib/jpegli/encode.h"
 
 struct glimt_jpeg_error {
     jpeg_error_mgr base;
     jmp_buf jump;
+    int code;
     char message[JMSG_LENGTH_MAX];
 };
 
@@ -24,6 +26,8 @@ struct glimt_jpeg_context {
     glimt_jpeg_error error;
     glimt_jpeg_destination destination;
     uint8_t *row;
+    uint8_t *synthesized_icc;
+    size_t synthesized_icc_size;
     int created;
 };
 
@@ -33,10 +37,87 @@ static void glimt_jpeg_error_exit(j_common_ptr common) {
     longjmp(error->jump, 1);
 }
 
-static void glimt_jpeg_raise(j_compress_ptr compressor, const char *message) {
+static void glimt_jpeg_raise(j_compress_ptr compressor, const char *message, int code = GLIMT_ERR_CODEC) {
+    reinterpret_cast<glimt_jpeg_error *>(compressor->err)->code = code;
     snprintf(compressor->err->msg_parm.s, JMSG_STR_PARM_MAX, "%s", message);
     compressor->err->msg_code = 0;
     compressor->err->error_exit(reinterpret_cast<j_common_ptr>(compressor));
+}
+
+static int glimt_is_known_sdr_cicp(uint32_t primaries, uint32_t transfer) {
+    return (primaries == 12 && transfer == 13) ||
+        (primaries == 1 && (transfer == 1 || transfer == 6)) ||
+        (primaries == 9 && (transfer == 13 || transfer == 14 || transfer == 15));
+}
+
+static int glimt_synthesize_cicp_icc(uint32_t primaries, uint32_t transfer, uint8_t **out_data, size_t *out_size) {
+    const cmsCIExyY d65 = {0.3127, 0.3290, 1.0};
+    cmsCIExyYTRIPLE rgb;
+    const char *description = NULL;
+    if (primaries == 12 && transfer == 13) {
+        rgb = {{0.680, 0.320, 1.0}, {0.265, 0.690, 1.0}, {0.150, 0.060, 1.0}};
+        description = "Display P3";
+    } else if (primaries == 1 && (transfer == 1 || transfer == 6)) {
+        rgb = {{0.640, 0.330, 1.0}, {0.300, 0.600, 1.0}, {0.150, 0.060, 1.0}};
+        description = "Rec. 709";
+    } else if (primaries == 9 && (transfer == 13 || transfer == 14 || transfer == 15)) {
+        rgb = {{0.708, 0.292, 1.0}, {0.170, 0.797, 1.0}, {0.131, 0.046, 1.0}};
+        description = "Rec. 2020";
+    } else {
+        return 0;
+    }
+
+    cmsFloat64Number params[5];
+    if (transfer == 13) {
+        // IEC 61966-2-1 sRGB EOTF
+        params[0] = 2.4;
+        params[1] = 1.0 / 1.055;
+        params[2] = 0.055 / 1.055;
+        params[3] = 1.0 / 12.92;
+        params[4] = 0.04045;
+    } else {
+        // ITU-T H.273 BT.709 / BT.2020 EOTF
+        const double alpha = 1.09929682680944;
+        const double beta = 0.018053968510807;
+        params[0] = 1.0 / 0.45;
+        params[1] = 1.0 / alpha;
+        params[2] = (alpha - 1.0) / alpha;
+        params[3] = 1.0 / 4.5;
+        params[4] = 4.5 * beta;
+    }
+
+    cmsToneCurve *curve = cmsBuildParametricToneCurve(NULL, 4, params);
+    if (!curve) return 0;
+    cmsToneCurve *curves[3] = {curve, curve, curve};
+    cmsHPROFILE profile = cmsCreateRGBProfile(&d65, &rgb, curves);
+    cmsFreeToneCurve(curve);
+    if (!profile) return 0;
+
+    if (description) {
+        cmsMLU *mlu = cmsMLUalloc(NULL, 1);
+        if (mlu) {
+            if (cmsMLUsetASCII(mlu, "en", "US", description)) {
+                cmsWriteTag(profile, cmsSigProfileDescriptionTag, mlu);
+            }
+            cmsMLUfree(mlu);
+        }
+    }
+
+    cmsUInt32Number length = 0;
+    uint8_t *buffer = NULL;
+    int ok = 0;
+    if (cmsSaveProfileToMem(profile, NULL, &length) && length >= 128) {
+        buffer = static_cast<uint8_t *>(malloc(length));
+        if (buffer && cmsSaveProfileToMem(profile, buffer, &length)) {
+            *out_data = buffer;
+            *out_size = length;
+            buffer = NULL;
+            ok = 1;
+        }
+    }
+    free(buffer);
+    cmsCloseProfile(profile);
+    return ok;
 }
 
 static void glimt_jpeg_init_destination(j_compress_ptr compressor) {
@@ -48,7 +129,7 @@ static void glimt_jpeg_init_destination(j_compress_ptr compressor) {
 static boolean glimt_jpeg_grow_destination(j_compress_ptr compressor) {
     glimt_jpeg_destination *destination = reinterpret_cast<glimt_jpeg_destination *>(compressor->dest);
     if (destination->capacity >= destination->maximum + 1) {
-        glimt_jpeg_raise(compressor, "Encoded JPEG exceeds configured output limit");
+        glimt_jpeg_raise(compressor, "Encoded JPEG exceeds configured output limit", GLIMT_ERR_OUTPUT_LIMIT);
         return FALSE;
     }
     size_t next = destination->capacity > (destination->maximum + 1) / 2
@@ -69,7 +150,7 @@ static void glimt_jpeg_finish_destination(j_compress_ptr compressor) {
     glimt_jpeg_destination *destination = reinterpret_cast<glimt_jpeg_destination *>(compressor->dest);
     destination->size = destination->capacity - destination->base.free_in_buffer;
     if (destination->size > destination->maximum) {
-        glimt_jpeg_raise(compressor, "Encoded JPEG exceeds configured output limit");
+        glimt_jpeg_raise(compressor, "Encoded JPEG exceeds configured output limit", GLIMT_ERR_OUTPUT_LIMIT);
     }
 }
 
@@ -96,18 +177,27 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
         (in->icc_size != 0 && !in->icc)) {
         return glimt_fail(out, "Invalid JPEG encoder parameters");
     }
-    if (!in->icc_size && !((in->primaries == 1 && in->transfer == 13) ||
+    const int needs_synthesized_icc = !in->icc_size && glimt_is_known_sdr_cicp(in->primaries, in->transfer);
+    if (!in->icc_size && !needs_synthesized_icc && !((in->primaries == 1 && in->transfer == 13) ||
         (in->primaries == 2 && in->transfer == 2))) {
-        return glimt_fail(out, "JPEG output requires sRGB samples or an embedded RGB ICC profile");
+        return glimt_fail_code(out, GLIMT_ERR_UNSUPPORTED,
+            "JPEG output requires sRGB samples or an embedded RGB ICC profile");
     }
 
     glimt_jpeg_context *context = static_cast<glimt_jpeg_context *>(calloc(1, sizeof(*context)));
     if (!context) return glimt_fail(out, "Cannot allocate JPEG encoder state");
+    if (needs_synthesized_icc &&
+        !glimt_synthesize_cicp_icc(in->primaries, in->transfer,
+            &context->synthesized_icc, &context->synthesized_icc_size)) {
+        free(context);
+        return glimt_fail(out, "Cannot synthesize ICC profile for JPEG colour space");
+    }
     context->destination.maximum = (size_t)options->max_output_bytes;
     context->destination.capacity = context->destination.maximum + 1 < (64u << 10)
         ? context->destination.maximum + 1 : (64u << 10);
     context->destination.data = static_cast<uint8_t *>(malloc(context->destination.capacity));
     if (!context->destination.data) {
+        free(context->synthesized_icc);
         free(context);
         return glimt_fail(out, "Cannot allocate JPEG output");
     }
@@ -118,15 +208,18 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
     jpeg_compress_struct *compressor = &context->compressor;
     compressor->err = jpegli_std_error(&context->error.base);
     context->error.base.error_exit = glimt_jpeg_error_exit;
+    context->error.code = GLIMT_ERR_CODEC;
     if (setjmp(context->error.jump)) {
         if (context->created) jpegli_destroy_compress(compressor);
         free(context->row);
+        free(context->synthesized_icc);
         free(context->destination.data);
         const char *message = context->error.message[0] ? context->error.message : "JPEGli encoder failure";
+        const int code = context->error.code;
         char copy[JMSG_LENGTH_MAX];
         snprintf(copy, sizeof(copy), "%s", message);
         free(context);
-        return glimt_fail(out, copy);
+        return glimt_fail_code(out, code, copy);
     }
 
     jpegli_create_compress(compressor);
@@ -164,7 +257,9 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
         if (!context->row) glimt_jpeg_raise(compressor, "Cannot allocate JPEG input row");
     }
     jpegli_start_compress(compressor, TRUE);
-    if (in->icc_size) jpegli_write_icc_profile(compressor, in->icc, (unsigned int)in->icc_size);
+    const uint8_t *icc_data = in->icc_size ? in->icc : context->synthesized_icc;
+    const size_t icc_size = in->icc_size ? (size_t)in->icc_size : context->synthesized_icc_size;
+    if (icc_size) jpegli_write_icc_profile(compressor, icc_data, (unsigned int)icc_size);
 
     const unsigned background[3] = {options->reserved >> 16, (options->reserved >> 8) & 255, options->reserved & 255};
     for (uint32_t y = 0; y < in->height; y++) {
@@ -208,6 +303,7 @@ API int glimt_encode(const glimt_image *in, const glimt_encode_options *options,
     jpegli_destroy_compress(compressor);
     context->created = 0;
     free(context->row);
+    free(context->synthesized_icc);
     out->pixels = context->destination.data;
     out->size = context->destination.size;
     out->width = in->width;

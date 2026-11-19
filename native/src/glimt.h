@@ -43,6 +43,16 @@ _Static_assert(sizeof(glimt_encode_options) == 40, "Glimt options ABI");
 _Static_assert(sizeof(glimt_resize_options) == 24, "Glimt resize options ABI");
 #endif
 
+enum {
+    GLIMT_ERR_CODEC = 1,
+    GLIMT_ERR_INVALID_INPUT = 2,
+    GLIMT_ERR_UNSUPPORTED = 3,
+    GLIMT_ERR_LIMITS = 4,
+    GLIMT_ERR_DIMENSIONS = 5,
+    GLIMT_ERR_MULTI_FRAME = 6,
+    GLIMT_ERR_OUTPUT_LIMIT = 7
+};
+
 API uint32_t glimt_abi(void) { return 3; }
 API void glimt_release(void *memory) { free(memory); }
 static inline void glimt_init(glimt_image *out) {
@@ -50,44 +60,51 @@ static inline void glimt_init(glimt_image *out) {
     out->depth = 8; out->frames = 1; out->orientation = 1;
     out->primaries = 1; out->transfer = 13;
 }
-static inline int glimt_fail(glimt_image *out, const char *message) {
+static inline int glimt_fail_code(glimt_image *out, int code, const char *message) {
     free(out->pixels); free(out->icc);
     out->pixels = NULL; out->icc = NULL; out->size = out->icc_size = 0;
     snprintf(out->error, sizeof(out->error), "%s", message ? message : "Native codec failure");
-    return 1;
+    return code ? code : GLIMT_ERR_CODEC;
+}
+static inline int glimt_fail(glimt_image *out, const char *message) {
+    return glimt_fail_code(out, GLIMT_ERR_CODEC, message);
 }
 static inline int glimt_dimensions(glimt_image *out, const glimt_limits *limits) {
     if (!out->width || !out->height || out->width > limits->max_dimension || out->height > limits->max_dimension ||
-        (uint64_t)out->width * out->height > limits->max_pixels)
-        return glimt_fail(out, "Image dimensions exceed configured limits");
+        (uint64_t)out->width * out->height > limits->max_pixels) {
+        char message[96];
+        snprintf(message, sizeof(message), "Image dimensions exceed configured limits: %ux%u", out->width, out->height);
+        return glimt_fail_code(out, GLIMT_ERR_DIMENSIONS, message);
+    }
     if (out->depth != 8 && out->depth != 10 && out->depth != 12 && out->depth != 16)
-        return glimt_fail(out, "Unsupported sample depth");
+        return glimt_fail_code(out, GLIMT_ERR_UNSUPPORTED, "Unsupported sample depth");
     out->stride = (uint64_t)out->width * 4 * (out->depth > 8 ? 2 : 1);
     out->size = out->stride * out->height;
     if (out->size > limits->max_decoded_bytes || out->size > SIZE_MAX || out->stride > INT_MAX)
-        return glimt_fail(out, "Decoded image exceeds configured byte limit");
+        return glimt_fail_code(out, GLIMT_ERR_LIMITS, "Decoded image exceeds configured byte limit");
     return 0;
 }
 static inline int glimt_allocate(glimt_image *out, const glimt_limits *limits) {
-    if (glimt_dimensions(out, limits)) return 1;
+    int status = glimt_dimensions(out, limits);
+    if (status) return status;
     out->pixels = (uint8_t *)malloc((size_t)out->size);
-    return out->pixels ? 0 : glimt_fail(out, "Cannot allocate decoded pixels");
+    return out->pixels ? 0 : glimt_fail_code(out, GLIMT_ERR_CODEC, "Cannot allocate decoded pixels");
 }
 static inline int glimt_icc(glimt_image *out, const void *data, size_t size, const glimt_limits *limits) {
     if (!size) return 0;
-    if (size > limits->max_metadata_bytes) return glimt_fail(out, "Colour profile exceeds configured limit");
+    if (size > limits->max_metadata_bytes) return glimt_fail_code(out, GLIMT_ERR_LIMITS, "Colour profile exceeds configured limit");
     const uint8_t *profile = (const uint8_t *)data;
     if (!data || size < 128 || memcmp(profile + 36, "acsp", 4) || memcmp(profile + 16, "RGB ", 4))
-        return glimt_fail(out, "Unsupported or invalid RGB ICC profile");
+        return glimt_fail_code(out, GLIMT_ERR_INVALID_INPUT, "Unsupported or invalid RGB ICC profile");
     out->primaries = 2; out->transfer = 2;
     out->icc = (uint8_t *)malloc(size);
-    if (!out->icc) return glimt_fail(out, "Cannot allocate colour profile");
+    if (!out->icc) return glimt_fail_code(out, GLIMT_ERR_CODEC, "Cannot allocate colour profile");
     memcpy(out->icc, data, size); out->icc_size = size;
     return 0;
 }
 static inline int glimt_frames(glimt_image *out, const glimt_limits *limits) {
-    if (out->frames > limits->max_frames) return glimt_fail(out, "Image frame count exceeds configured limit");
-    if (out->frames > 1 && !limits->first_frame) return glimt_fail(out, "Multi-frame image requires FIRST_FRAME policy");
+    if (out->frames > limits->max_frames) return glimt_fail_code(out, GLIMT_ERR_LIMITS, "Image frame count exceeds configured limit");
+    if (out->frames > 1 && !limits->first_frame) return glimt_fail_code(out, GLIMT_ERR_MULTI_FRAME, "Multi-frame image requires FIRST_FRAME policy");
     return 0;
 }
 static inline void glimt_unpremultiply(glimt_image *out) {

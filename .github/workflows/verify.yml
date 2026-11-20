@@ -35,7 +35,7 @@ jobs:
         include:
           - runner: macos-15
             platform: macos-arm64
-          - runner: ubuntu-22.04
+          - runner: ubuntu-26.04
             platform: linux-x64-glibc
     runs-on: ${{ matrix.runner }}
     steps:
@@ -64,11 +64,9 @@ jobs:
         run: ./gradlew build
       - name: Verify minimal classpath and JPMS runtime
         run: python tools/runtime-smoke.py --platform '${{ matrix.platform }}'
-      - name: Clean glibc compatibility and production-generation containers
+      - name: Clean Ubuntu 26.04 glibc container
         if: runner.os == 'Linux'
-        run: |
-          docker build --build-arg RUNTIME_IMAGE=ubuntu:22.04 -f native/Dockerfile.glibc-smoke .
-          docker build --build-arg RUNTIME_IMAGE=ubuntu:26.04 -f native/Dockerfile.glibc-smoke .
+        run: docker build --build-arg RUNTIME_IMAGE=ubuntu:26.04 -f native/Dockerfile.glibc-smoke .
       - uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.platform }}

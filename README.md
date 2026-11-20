@@ -243,7 +243,7 @@ must make:
 | Native suffix | Compatibility baseline |
 | --- | --- |
 | `macos-arm64` | macOS 14+, Apple Silicon |
-| `linux-x64-glibc` | Linux x86-64, glibc 2.35+; tested on Ubuntu 22.04 and 26.04 |
+| `linux-x64-glibc` | Linux x86-64, glibc 2.43+; built and tested on Ubuntu 26.04 |
 | `linux-x64-musl` | Linux x86-64, musl 1.2.5+; Alpine 3.23/BellSoft hardened base |
 
 Windows, Linux ARM64 and Intel macOS binaries are not published in this release.

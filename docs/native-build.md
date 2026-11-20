@@ -20,10 +20,8 @@ These are native builds, not cross-compilation switches. Select codecs using
 `--codecs avif,jpeg,jpegli,png`. Build `png` before `extra`. macOS defaults to ARM64,
 normal Linux builds to glibc.
 
-The glibc release build intentionally uses Ubuntu 22.04 as its ABI floor. Clean
-runtime tests cover both Ubuntu 22.04 and the current Ubuntu 26.04 production
-generation. Moving the build itself to Ubuntu 26.04 would unnecessarily raise
-the minimum supported glibc version.
+The glibc release build uses Ubuntu 26.04 (glibc 2.43+) as its ABI floor, and
+clean container smoke tests verify the resulting binaries on Ubuntu 26.04.
 
 `native/sources.json` pins versions/checksums. GitHub archives use SHA-256 of the
 archive. Gitiles archives have changing timestamps, so those entries additionally

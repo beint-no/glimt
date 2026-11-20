@@ -38,10 +38,8 @@ Glimt works in glibc and musl containers without extra OS packages. Its own
 `native/Dockerfile.*` and `tools/Dockerfile.*` files build and verify release
 artifacts; they are not templates for consumer applications.
 
-The glibc libraries are built against glibc 2.35 so they continue to run on
-Ubuntu 22.04 and newer distributions. CI executes the same binaries in clean
-Ubuntu 22.04 and Ubuntu 26.04 images. Building on the newest Ubuntu would raise
-the minimum glibc version without improving behavior on that release.
+The glibc libraries are built against glibc 2.43 on Ubuntu 26.04 and verified
+in clean Ubuntu 26.04 images.
 
 The musl libraries target musl 1.2.5 and are tested in clean hardened musl
 images. Detection inspects the libc mapped into the JVM, so installing musl tools

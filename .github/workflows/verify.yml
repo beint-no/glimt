@@ -81,7 +81,7 @@ jobs:
           path: tests/build/reports/tests
   musl:
     if: inputs.native_run == ''
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Build and test musl codecs with JDK 26
@@ -99,7 +99,7 @@ jobs:
           if-no-files-found: error
   sanitizer:
     if: inputs.native_run == ''
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
@@ -114,9 +114,9 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: native/.work
-          key: sanitizer-ubuntu24-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}
+          key: sanitizer-ubuntu26-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}
           restore-keys: |
-            sanitizer-ubuntu24-${{ hashFiles('native/sources.json', 'native/build.py') }}-
+            sanitizer-ubuntu26-${{ hashFiles('native/sources.json', 'native/build.py') }}-
             ${{ inputs.sanitizer_cache }}
       - name: Preflight sanitizer toolchain
         env:
@@ -139,4 +139,4 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: native/.work
-          key: sanitizer-ubuntu24-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}
+          key: sanitizer-ubuntu26-${{ hashFiles('native/sources.json', 'native/build.py') }}-${{ github.sha }}

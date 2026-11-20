@@ -22,9 +22,9 @@ jobs:
         include:
           - runner: macos-15
             platform: macos-arm64
-          - runner: ubuntu-24.04
+          - runner: ubuntu-26.04
             platform: linux-x64-glibc
-          - runner: ubuntu-24.04
+          - runner: ubuntu-26.04
             platform: linux-x64-musl
     runs-on: ${{ matrix.runner }}
     steps:
